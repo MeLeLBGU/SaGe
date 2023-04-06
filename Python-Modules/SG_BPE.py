@@ -37,7 +37,7 @@ class SG_BPE_Models:
 
 
 class Model:
-    def __init__(self, experiment_name, log2, model, model_name, \
+    def __init__(self, experiment_name, log, model, model_name, \
         target_embeddings, context_embeddings, corpus_lines, max_lines_per_token, window_size, is_continue_execution=False, vocab_filepath=False):
 
         self._experiment_name = experiment_name
@@ -45,7 +45,7 @@ class Model:
         self._model_name = model_name
         self._target_embeddings = target_embeddings
         self._context_embeddings = context_embeddings
-        self._log2 = log2
+        self._log = log
         self._current_vocab = None
         self._should_compute_vocab = True
         self._corpus_lines = corpus_lines
@@ -132,7 +132,6 @@ class Model:
                 current_p += math.log(Utils.sigmoid(dot_product))
             except:
                 pass
-                #self._log2.info("sigmoid error on token {}, when current_p={}".format(target_token, current_p))
 
         return (-1) * current_p
 
@@ -177,7 +176,7 @@ class Model:
         process_pool = mp.Pool(mp.cpu_count())
         params = [(self._model, token, current_total_sg, \
                     current_vocab, training_filepath, \
-                    self._target_embeddings, self._context_embeddings, self._log2, self._corpus_lines, self._window_size) for token in current_vocab]
+                    self._target_embeddings, self._context_embeddings, self._log, self._corpus_lines, self._window_size) for token in current_vocab]
         res = process_pool.starmap(Utils.sg_wo_token_mp, params)
         
         for r in res:
@@ -213,7 +212,7 @@ class Model:
                 params.append((self._model, line_index, \
                     self._corpus_lines, self._model_encoded_corpus_lines_token_ids, self._model_encoded_corpus_lines_token_pieces, \
                     token, current_vocab, \
-                    self._target_embeddings, self._context_embeddings, self._log2, self._window_size))
+                    self._target_embeddings, self._context_embeddings, self._log, self._window_size))
 
             lines_per_token[token] = len(lines_to_consider)
         

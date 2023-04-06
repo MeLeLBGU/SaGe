@@ -27,13 +27,13 @@ def set_random_seed(chosen_seed):
 	spm.SetRandomGeneratorSeed(chosen_seed)
 	np.random.seed(chosen_seed)
 
-def fix_random_seed(experiment_name, is_continue_execution, log2):
+def fix_random_seed(experiment_name, is_continue_execution, log):
 	chosen_seed = 0
 	seed_filepath = "results/{}/seed.txt".format(experiment_name)
 	if is_continue_execution and exists(seed_filepath):
 		with open(seed_filepath, "r") as seed_file:
 			chosen_seed = int(seed_file.read())
-			log2.info("chosen seed is {}".format(chosen_seed))
+			log.info("chosen seed is {}".format(chosen_seed))
 	
 	else:
 		# saving for continue execution of that experiment, if this is first time execution
@@ -44,24 +44,24 @@ def fix_random_seed(experiment_name, is_continue_execution, log2):
 
 ######### Main #####################################################################
 
-def log_parameters(log2, final_vocab_size, initial_vocab_size, \
+def log_parameters(log, final_vocab_size, initial_vocab_size, \
 	partial_corpus_lines_number, tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, \
 	iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size):
 	
-	log2.info("-----------------------------------------")
-	log2.info("Starting Experiment.")
-	log2.info("initial_vocab_size: {}, final_vocab_size: {}".format(initial_vocab_size, final_vocab_size))
-	log2.info("partial_corpus_lines_number: {}\n".format(partial_corpus_lines_number))
-	log2.info("tokens_to_prune_in_iteration {}".format(tokens_to_prune_in_iteration))
-	log2.info("tokens_to_consider_in_iteration: {}".format(tokens_to_consider_in_iteration))
-	log2.info("iterations_until_reranking: {}".format(iterations_until_reranking))
-	log2.info("max_lines_per_token: {}".format(max_lines_per_token))
-	log2.info("corpus_filepath: {}".format(corpus_filepath))
-	log2.info("partial_corpus_filepath: {}".format(partial_corpus_filepath))
-	log2.info("window_size: {}".format(window_size))
-	log2.info("Number of processes in pool: {}".format(mp.cpu_count()))
-	log2.info("Not re-calculating embeddings")
-	log2.info("-----------------------------------------")
+	log.info("-----------------------------------------")
+	log.info("Starting Experiment.")
+	log.info("initial_vocab_size: {}, final_vocab_size: {}".format(initial_vocab_size, final_vocab_size))
+	log.info("partial_corpus_lines_number: {}\n".format(partial_corpus_lines_number))
+	log.info("tokens_to_prune_in_iteration {}".format(tokens_to_prune_in_iteration))
+	log.info("tokens_to_consider_in_iteration: {}".format(tokens_to_consider_in_iteration))
+	log.info("iterations_until_reranking: {}".format(iterations_until_reranking))
+	log.info("max_lines_per_token: {}".format(max_lines_per_token))
+	log.info("corpus_filepath: {}".format(corpus_filepath))
+	log.info("partial_corpus_filepath: {}".format(partial_corpus_filepath))
+	log.info("window_size: {}".format(window_size))
+	log.info("Number of processes in pool: {}".format(mp.cpu_count()))
+	log.info("Not re-calculating embeddings")
+	log.info("-----------------------------------------")
 
 ######### Main #####################################################################
 
@@ -71,39 +71,39 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 
 	# Initialize Statistics Logger
 	print("Initializing statistics logger")
-	log2 = Logger.Logger2("statistics")
+	log = Logger.Logger2("statistics")
 
-	log2.info("Fixing random seed")
-	fix_random_seed(experiment_name, is_continue_execution, log2)
+	log.info("Fixing random seed")
+	fix_random_seed(experiment_name, is_continue_execution, log)
 
 	# Preparing Wiki 2m Data
 	# Corpus currently returns partial data, shuffled
-	log2.info("Preparing corpus")
-	corpus = Corpus.Corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_lines_number, log2)
+	log.info("Preparing corpus")
+	corpus = Corpus.Corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_lines_number, log)
 	partial_corpus = corpus.get_corpus()
 
 	# Log parameters if not continuation execution
 	if not is_continue_execution:
-		log_parameters(log2, final_vocab_size, initial_vocab_size, partial_corpus_lines_number, \
+		log_parameters(log, final_vocab_size, initial_vocab_size, partial_corpus_lines_number, \
 			tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, iterations_until_reranking, \
 			max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size)
 
 	# BPE using SentencePiece Python Module
-	log2.info("Preparing SG and BPE Models")
+	log.info("Preparing SG and BPE Models")
 	models = SG_BPE.SG_BPE_Models(experiment_name, is_continue_execution, final_vocab_size, initial_vocab_size, partial_corpus_filepath)
 	sg_bpe_model = models.get_sg_bpe_model()
 	bpe_vanilla_500_model = models.get_bpe_vanilla_model()
 
 	# Computing WordPiece Embedding Matrix
-	log2.info("Computing embeddings")
+	log.info("Computing embeddings")
 	embeddings_filepath = "results/{}/embeddings.bin".format(experiment_name)
 	if not is_continue_execution:
-		wp_trainer = Wordpiece.WordpieceTrainer(sg_bpe_model, corpus, window_size, log2)
+		wp_trainer = Wordpiece.WordpieceTrainer(sg_bpe_model, corpus, window_size, log)
 		target_embeddings, context_embeddings = wp_trainer.train_embeddings()
 		with open(embeddings_filepath, "wb") as embeddings_file:
 			pickle.dump(target_embeddings, embeddings_file)
 			pickle.dump(context_embeddings, embeddings_file)
-			log2.info("dumped embeddings to {}".format(embeddings_filepath))
+			log.info("dumped embeddings to {}".format(embeddings_filepath))
 	else:
 		with open(embeddings_filepath, "rb") as embeddings_file:
 			target_embeddings = pickle.load(embeddings_file)
@@ -111,11 +111,11 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 
 	# Creating model objects
 	# These will hold needed logic for training loop, logging results and gathering information about models too
-	log2.info("Creating model objects")
+	log.info("Creating model objects")
 	vocab_filepath = "results/{}/current_vocab".format(experiment_name)
-	sg_bpe_model_object = SG_BPE.Model(experiment_name, log2, sg_bpe_model, "sg_bpe_original_550", \
+	sg_bpe_model_object = SG_BPE.Model(experiment_name, log, sg_bpe_model, "sg_bpe_original_550", \
 		target_embeddings, context_embeddings, partial_corpus, max_lines_per_token, window_size, is_continue_execution, vocab_filepath)
-	bpe_vanilla_model_object = SG_BPE.Model(experiment_name, log2, bpe_vanilla_500_model, "bpe_vanilla_500", \
+	bpe_vanilla_model_object = SG_BPE.Model(experiment_name, log, bpe_vanilla_500_model, "bpe_vanilla_500", \
 		target_embeddings, context_embeddings, partial_corpus, max_lines_per_token, window_size)
 
 	# We use the "get_current_vocab" method because of sentencepiece tricky way to remove tokens from the vocabulary.
@@ -131,7 +131,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	# Thus, in each iteration we will find the tokens that without them the objective is minimal.
 	###########################################################################################################################
 
-	log2.info("Preparing sorted Tokens-SG-objective list")
+	log.info("Preparing sorted Tokens-SG-objective list")
 	sorted_tokens_sg_filepath = "results/{}/sorted_tokens_sg.bin".format(experiment_name)
 	if is_continue_execution and exists(sorted_tokens_sg_filepath):
 		with open(sorted_tokens_sg_filepath, "rb") as sorted_tokens_sg_file:
@@ -143,12 +143,12 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 
 		# And Log starting-point SG objective
 		sg_bpe_model_object.total_sg_log_prob(partial_corpus_filepath)
-		log2.info("Initial SG-BPE-500 total_log_sg_prob: {}".format(total_skipgram_ns_probability))
+		log.info("Initial SG-BPE-500 total_log_sg_prob: {}".format(total_skipgram_ns_probability))
 
 		bpe_vanilla_model_object.total_sg_log_prob(partial_corpus_filepath)
-		log2.info("Initial Vanilla-BPE-500 total_log_sg_prob: {}".format(bpe_vanilla_total_skipgram_ns_probability))
+		log.info("Initial Vanilla-BPE-500 total_log_sg_prob: {}".format(bpe_vanilla_total_skipgram_ns_probability))
 
-		log2.log_separator()
+		log.log_separator()
 
 		# Log original sg log prob without each token
 		## You can comment it - we used it to choose the hyperparameter of how many tokens we need to prune in each iteration.
@@ -162,7 +162,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 			pickle.dump(sorted_tokens_sg, sorted_tokens_sg_file)
 
 	# And start the "Training-Loop"
-	log2.info("Starting the 'Training-Loop'")
+	log.info("Starting the 'Training-Loop'")
 
 	# sorted tokens list
 	list_of_sorted_tokens_sg = [x[0] for x in sorted_tokens_sg]
@@ -182,7 +182,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 
 	progress_bar = tqdm(total = (len(current_vocab) - final_vocab_size) / tokens_to_prune_in_iteration)
 	while len(current_vocab) > final_vocab_size:
-		log2.info("iteration #{}, num of vocab: {}, length of top: {}".format(iteration, len(current_vocab), len(current_dict_of_top_tokens)))
+		log.info("iteration #{}, num of vocab: {}, length of top: {}".format(iteration, len(current_vocab), len(current_dict_of_top_tokens)))
 
 		if (iteration % iterations_until_reranking) == 0:
 			token_and_sg_log_prob_without_it = sg_bpe_model_object.get_sg_log_prob_without_tokens_mp2(current_total_sg, True)
@@ -194,16 +194,14 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 
 		# finding the tokens to prune in that iteration (those that without them the value is minimal)
 		tokens_to_prune = [t[0] for t in sorted_tokens_sg[:tokens_to_prune_in_iteration]]
-		log2.info("pruning: {}".format(tokens_to_prune))
-		#original_positions = [(t, list_of_sorted_tokens_sg.index(t)) for t in tokens_to_prune]
-		#log2.info("their original positions in sg list were: {}".format(original_positions))
+		log.info("pruning: {}".format(tokens_to_prune))
 		
 		for t in tokens_to_prune:
 			try:
 				current_vocab.remove(t)
 				current_dict_of_top_tokens.remove(t)
 			except:
-				log2.info("could not remove {}".format(t[0]))
+				log.info("could not remove {}".format(t[0]))
 				raise
 
 		# update our model vocab
@@ -217,13 +215,13 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 		current_total_sg = sg_bpe_model_object.total_sg_log_prob(partial_corpus_filepath)
 
 		# log current sg objective
-		log2.info("current SG-BPE-500 total_log_sg_prob: {}".format(current_total_sg))
-		log2.info("current size is {}".format(len(current_vocab)))
-		log2.info("Time elapsed (iteration #{}) - {} (minutes)".format(iteration, float(progress_bar.format_dict["elapsed"])/60))
-		log2.info("Time elapsed (iteration #{}) - {} (minutes)".format(iteration, float(progress_bar.format_dict["elapsed"])/60))
+		log.info("current SG-BPE-500 total_log_sg_prob: {}".format(current_total_sg))
+		log.info("current size is {}".format(len(current_vocab)))
+		log.info("Time elapsed (iteration #{}) - {} (minutes)".format(iteration, float(progress_bar.format_dict["elapsed"])/60))
+		log.info("Time elapsed (iteration #{}) - {} (minutes)".format(iteration, float(progress_bar.format_dict["elapsed"])/60))
 
 		# prepare to next iteration
-		log2.log_separator()
+		log.log_separator()
 		progress_bar.update(1)
 		iteration += 1
 
@@ -233,17 +231,17 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	sg_bpe_model_object.log_experiments_model_results(partial_corpus_filepath, "sg_bpe_500")
 
 	final_total_skipgram_ns_probability = sg_bpe_model_object.total_sg_log_prob(partial_corpus_filepath)
-	log2.info("Final SG-BPE-500 total_log_sg_prob: {}".format(final_total_skipgram_ns_probability))
+	log.info("Final SG-BPE-500 total_log_sg_prob: {}".format(final_total_skipgram_ns_probability))
 
 	bpe_vanilla_total_skipgram_ns_probability = bpe_vanilla_model_object.total_sg_log_prob(partial_corpus_filepath)
-	log2.info("Vanilla-BPE-500 total_log_sg_prob: {}".format(bpe_vanilla_total_skipgram_ns_probability))
+	log.info("Vanilla-BPE-500 total_log_sg_prob: {}".format(bpe_vanilla_total_skipgram_ns_probability))
 
 	# Log difference between vanilla and updated bpe models
 	# log tokens only in sg-bpe vocab
 	current_vocab = sg_bpe_model_object.get_current_vocab()
-	log2.info("vocab len = {}".format(len(current_vocab)))
+	log.info("vocab len = {}".format(len(current_vocab)))
 	bpe_vanilla_500_vocab = bpe_vanilla_model_object.get_current_vocab()
-	log2.info("bpe vanilla vocab len = {}".format(len(bpe_vanilla_500_vocab)))
+	log.info("bpe vanilla vocab len = {}".format(len(bpe_vanilla_500_vocab)))
 
 	only_in_sg_bpe = [t for t in current_vocab if t not in bpe_vanilla_500_vocab]
 	sg_bpe_500_only_filepath = "./results/{}/sg_bpe_500_only.txt".format(experiment_name)
@@ -258,22 +256,22 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 		
 	# Average token length
 	average_token_length = sum(map(len, current_vocab)) / len(current_vocab)
-	log2.info("SG-BPE average token length: {}".format(average_token_length))
+	log.info("SG-BPE average token length: {}".format(average_token_length))
 
 	# Average token length of vanilla-bpe
 	vanilla_average_token_length = sum(map(len, bpe_vanilla_500_vocab)) / len(bpe_vanilla_500_vocab)
-	log2.info("Vanilla-BPE average token length: {}".format(vanilla_average_token_length))
+	log.info("Vanilla-BPE average token length: {}".format(vanilla_average_token_length))
 
 	# Length of encoded file data
 	with open(partial_corpus_filepath) as input_file:
 		input_file_data = input_file.read()
 
 	encoded_data = [sg_bpe_model.id_to_piece(x) for x in sg_bpe_model.encode(input_file_data)]
-	log2.info("SG-BPE encoding length: {} (file length: {})".format(len(encoded_data), len(input_file_data)))
+	log.info("SG-BPE encoding length: {} (file length: {})".format(len(encoded_data), len(input_file_data)))
 
 	# Length of encoded file data of vanilla-bpe
 	vanilla_encoded_data = [bpe_vanilla_500_model.id_to_piece(x) for x in bpe_vanilla_500_model.encode(input_file_data)]
-	log2.info("Vanilla-BPE encoding length: {} (file length: {})".format(len(vanilla_encoded_data), len(input_file_data)))
+	log.info("Vanilla-BPE encoding length: {} (file length: {})".format(len(vanilla_encoded_data), len(input_file_data)))
 
 def prepare_parameters():
 	parser = argparse.ArgumentParser(description="Calculating SaGe vocabulary.")

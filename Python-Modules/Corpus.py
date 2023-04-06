@@ -2,9 +2,9 @@ import Utils
 import random
 
 class Corpus:
-    def __init__(self, corpus_filepath, partial_corpus_filepath, partial_corpus_lines_number, log2):
+    def __init__(self, corpus_filepath, partial_corpus_filepath, partial_corpus_lines_number, log):
         #print("random state: {}".format(random.getstate()))
-        self._log = log2
+        self._log = log
 
         with open(corpus_filepath) as full_corpus:
             self._full_corpus_data = full_corpus.readlines()
