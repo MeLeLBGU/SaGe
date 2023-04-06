@@ -69,7 +69,7 @@ def fix_random_seed(experiment_name, is_continue_execution, log2):
 
 def log_parameters(log2, final_vocab_size, initial_vocab_size, \
 	partial_corpus_lines_number, tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, \
-	iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size, use_gensim):
+	iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size):
 	
 	log2.info("-----------------------------------------")
 	log2.info("Starting Experiment.")
@@ -82,7 +82,6 @@ def log_parameters(log2, final_vocab_size, initial_vocab_size, \
 	log2.info("corpus_filepath: {}".format(corpus_filepath))
 	log2.info("partial_corpus_filepath: {}".format(partial_corpus_filepath))
 	log2.info("window_size: {}".format(window_size))
-	log2.info("use_gensim: {}".format(use_gensim))
 	log2.info("Number of processes in pool: {}".format(mp.cpu_count()))
 	log2.info("Not re-calculating embeddings")
 	log2.info("-----------------------------------------")
@@ -91,7 +90,7 @@ def log_parameters(log2, final_vocab_size, initial_vocab_size, \
 
 def main(experiment_name, is_continue_execution, final_vocab_size, \
 	initial_vocab_size, partial_corpus_lines_number, tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, \
-	iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size, use_gensim):
+	iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size):
 
 	# Initialize Statistics Logger
 	print("Initializing statistics logger")
@@ -110,7 +109,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	if not is_continue_execution:
 		log_parameters(log2, final_vocab_size, initial_vocab_size, partial_corpus_lines_number, \
 			tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, iterations_until_reranking, \
-			max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size, use_gensim)
+			max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size)
 
 	# BPE using SentencePiece Python Module
 	log2.info("Preparing SG and BPE Models")
@@ -122,7 +121,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	log2.info("Computing embeddings")
 	embeddings_filepath = "results/{}/embeddings.bin".format(experiment_name)
 	if not is_continue_execution:
-		wp_trainer = Wordpiece.WordpieceTrainer(sg_bpe_model, corpus, window_size, log2, use_gensim)
+		wp_trainer = Wordpiece.WordpieceTrainer(sg_bpe_model, corpus, window_size, log2)
 		target_embeddings, context_embeddings = wp_trainer.train_embeddings()
 		with open(embeddings_filepath, "wb") as embeddings_file:
 			pickle.dump(target_embeddings, embeddings_file)
@@ -313,7 +312,6 @@ def prepare_parameters():
 	parser.add_argument("--partial_corpus_filepath", required=True, help="where to create partial corpus file - with number of lines requested")
 	parser.add_argument("--max_lines_per_token", default=1000, help="max number of lines to consider in objective calculation, per-token")
 	parser.add_argument("--window_size", default=5, help="window size for SG objective calculation, and also for wordpiece embeddings calculation")
-	parser.add_argument("--use_gensim", default="N", help="Whether to use gensim to compute word embeddings [Y/N]")
 	return vars(parser.parse_args())
 
 if __name__ == "__main__":
@@ -325,8 +323,6 @@ if __name__ == "__main__":
 	is_continue_execution = True if args["is_continue"] == "Y" else False
 	print("is_continue={}".format(is_continue_execution))
 	
-	use_gensim = True if args["use_gensim"] == "Y" else False
-
 	K_NUMBER = 1000
 	partial_corpus_lines_number = int(args["thousands_of_corpus_lines"]) * K_NUMBER
 
@@ -342,4 +338,4 @@ if __name__ == "__main__":
 
 	main(experiment_name, is_continue_execution, final_vocab_size, \
 		initial_vocab_size, partial_corpus_lines_number, tokens_to_prune_in_iteration, tokens_to_consider_in_iteration, \
-		iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size, use_gensim)
+		iterations_until_reranking, max_lines_per_token, corpus_filepath, partial_corpus_filepath, window_size)

@@ -62,7 +62,6 @@ Default override arguments:
 	--thousands_of_corpus_lines: number of corpus lines - in thousands. default=200.
 	--max_lines_per_token: max number of lines to consider in objective calculation, per-token. default=1000.
 	--window_size: window size for SG objective calculation, and also for wordpiece embeddings calculation. default=5.
-	--use_gensim: Whether to use gensim to compute word embeddings [Y/N]. default="N".
 
 Example:
     python Main.py \
@@ -74,8 +73,7 @@ Example:
         --iterations_until_reranking 15 \
         --corpus_filepath "../data/wiki_lines.txt" \
         --partial_corpus_filepath "../data/wiki_lines_partial.txt" \
-        --thousands_of_corpus_lines 500 \
-        --use_gensim Y 
+        --thousands_of_corpus_lines 500
 
 If this job would be canceled and we like to re-execute it from where it stopped, just execute the same command with "--is_continue Y".
 
