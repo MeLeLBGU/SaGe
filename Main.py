@@ -1,27 +1,23 @@
 # -*- coding: utf-8 -*-
 
-from functools import partial
 import multiprocessing as mp
-from pickle import FALSE
 import sys
-
-sys.path.insert(0, "./Python-Modules")
-
-import math
 import json
 import random
-import string
 import pickle
 import argparse
-import Utils # From Python-Modules
-import Corpus # From Python-Modules
-import Logger # From Python-Modules
-import SG_BPE # From Python-Modules
-import Wordpiece # From Python-Modules
 import numpy as np
 from tqdm import tqdm
 import sentencepiece as spm
 from os.path import exists
+
+# Import From Python-Modules
+sys.path.insert(0, "./Python-Modules")
+import Utils
+import Corpus
+import Logger
+import SG_BPE
+import Wordpiece
 
 ######### Fix Random Seed ###########################################################
 
@@ -30,7 +26,6 @@ def set_random_seed(chosen_seed):
 	random.seed(chosen_seed)
 	spm.SetRandomGeneratorSeed(chosen_seed)
 	np.random.seed(chosen_seed)
-	#print("random state: {}".format(random.getstate()))
 
 def fix_random_seed(experiment_name, is_continue_execution, log2):
 	chosen_seed = 0
@@ -46,24 +41,6 @@ def fix_random_seed(experiment_name, is_continue_execution, log2):
 			seed_file.write(str(chosen_seed))
 
 	set_random_seed(chosen_seed)
-	
-########## Uncomment and call to test token_to_line counters #######################
-
-'''def token_to_line_counters(log2):
-	sg_bpe_550_vocab_filepath = "results/exp_20/current_vocab.bin"
-	with open(sg_bpe_550_vocab_filepath, "rb") as vocab_file:
-		current_bpe_vocab = pickle.load(vocab_file)
-
-	token_to_indices_dict = Utils.token_to_line_indices_dictionary(current_bpe_vocab, partial_corpus)
-	
-	token_to_indices_count_dict = {}
-	for t in token_to_indices_dict.keys():
-		token_to_indices_count_dict[t] = len(token_to_indices_dict[t])
-
-	sorted_token_to_indices_count_dict = sorted(token_to_indices_count_dict.items(), key=lambda item: item[1])
-	log2.info(json.dumps(sorted_token_to_indices_count_dict, indent=4))
-
-	raise -1'''
 
 ######### Main #####################################################################
 
@@ -323,9 +300,7 @@ if __name__ == "__main__":
 	is_continue_execution = True if args["is_continue"] == "Y" else False
 	print("is_continue={}".format(is_continue_execution))
 	
-	K_NUMBER = 1000
-	partial_corpus_lines_number = int(args["thousands_of_corpus_lines"]) * K_NUMBER
-
+	partial_corpus_lines_number = int(args["thousands_of_corpus_lines"]) * 1000
 	final_vocab_size = int(args["final_vocab_size"])
 	initial_vocab_size = int(args["initial_vocab_size"])
 	tokens_to_prune_in_iteration = int(args["tokens_to_prune_in_iteration"])
