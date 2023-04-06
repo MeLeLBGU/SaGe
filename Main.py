@@ -10,6 +10,7 @@ import numpy as np
 from tqdm import tqdm
 import sentencepiece as spm
 from os.path import exists
+import os
 
 # Import From Python-Modules
 sys.path.insert(0, "./Python-Modules")
@@ -21,14 +22,16 @@ import Wordpiece
 
 ######### Fix Random Seed ###########################################################
 
+# Fill with your chosen seed
+CHOSEN_SEED = 0
+
 def set_random_seed(chosen_seed):
 	# setting seed
 	random.seed(chosen_seed)
 	spm.SetRandomGeneratorSeed(chosen_seed)
 	np.random.seed(chosen_seed)
 
-def fix_random_seed(experiment_name, is_continue_execution, log):
-	chosen_seed = 0
+def fix_random_seed(experiment_name, is_continue_execution, chosen_seed, log):
 	seed_filepath = "results/{}/seed.txt".format(experiment_name)
 	if is_continue_execution and exists(seed_filepath):
 		with open(seed_filepath, "r") as seed_file:
@@ -73,11 +76,19 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	print("Initializing statistics logger")
 	log = Logger.Logger2("statistics")
 
-	log.info("Fixing random seed")
-	fix_random_seed(experiment_name, is_continue_execution, log)
+	if not exists("results"):
+		log.info("Creating 'results' dir")
+		os.mkdir("results")
 
-	# Preparing Wiki 2m Data
-	# Corpus currently returns partial data, shuffled
+	experiment_results_directory = "results/{}".format(experiment_name)
+	if not exists(experiment_results_directory):
+		log.info("Creating {} dir".format(experiment_results_directory))
+		os.mkdir(experiment_results_directory)
+
+	log.info("Fixing random seed")
+	fix_random_seed(experiment_name, is_continue_execution, CHOSEN_SEED, log)
+
+	# Preparing Data
 	log.info("Preparing corpus")
 	corpus = Corpus.Corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_lines_number, log)
 	partial_corpus = corpus.get_corpus()
