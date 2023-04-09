@@ -19,7 +19,7 @@ class CorpusIteratorForGensim:
 
 ############################################################################
 
-class WordpieceTrainer:
+class EmbeddingsTrainer:
     def __init__(self, model, corpus, window_size, log):
         self._model = model
         self._corpus = corpus

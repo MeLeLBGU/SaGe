@@ -61,7 +61,7 @@ Default override arguments:
     --is_continue: is this execution continues former execiution of that experiment: [Y/N]. default="N".
 	--thousands_of_corpus_lines: number of corpus lines - in thousands. default=200.
 	--max_lines_per_token: max number of lines to consider in objective calculation, per-token. default=1000.
-	--window_size: window size for SG objective calculation, and also for wordpiece embeddings calculation. default=5.
+	--window_size: window size for SG objective calculation, and also for embeddings calculation. default=5.
 
 Example:
     python Main.py \
