@@ -1,6 +1,5 @@
 
 from re import M
-import tqdm
 import json
 import pickle
 import random
@@ -56,9 +55,6 @@ class Model:
             with open(vocab_filepath + ".bin", "rb") as vocab_file:
                 current_bpe_vocab = pickle.load(vocab_file)
                 self.set_vocab(current_bpe_vocab)
-
-            '''with open(vocab_filepath + ".txt", "wb") as vocab_file_parsed:
-                vocab_file_parsed.write("\n".join(self._current_vocab))'''
 
     def initialize_encoded_form_for_corpus_lines(self):
         model_encoded_coprus_lines_token_ids = []
@@ -166,7 +162,6 @@ class Model:
         if dict_of_top_tokens:
             current_vocab = dict_of_top_tokens
 
-        #current_vocab_iter = self.get_current_vocab()
         print("\nCurrent vocab len - {}".format(len(current_vocab)))
 
         if nat_list:
@@ -193,7 +188,6 @@ class Model:
         current_vocab = self.get_current_vocab()
         if dict_of_top_tokens:
             current_vocab = dict_of_top_tokens
-        #print("\nCurrent vocab len - {}".format(len(current_vocab)))
 
         if nat_list:
             current_nat_list = Utils.get_not_ablateable_tokens_list(current_vocab)
@@ -225,7 +219,6 @@ class Model:
             if token not in token_and_sg_log_prob_without_it.keys():
                 token_and_sg_log_prob_without_it[token] = current_total_sg
 
-            #print("sg_wo_diff: {}, current: {}".format(sg_wo_diff, token_and_sg_log_prob_without_it[token]))
             token_and_sg_log_prob_without_it[token] += (float(sg_wo_diff) / lines_per_token[token])
             
         return token_and_sg_log_prob_without_it

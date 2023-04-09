@@ -175,7 +175,7 @@ def main(experiment_name, is_continue_execution, final_vocab_size, \
 	log.info("Starting the 'Training-Loop'")
 
 	current_vocab = sg_bpe_model_object.get_current_vocab()
-	current_total_sg = total_skipgram_ns_probability # We already computed sg_bpe_model_object.total_sg_log_prob(partial_corpus_filepath)
+	current_total_sg = sg_bpe_model_object.total_sg_log_prob(partial_corpus_filepath)
 
 	## prepare from ahead ####
 	### now we want dict from token to index of lines - and re-encode when token is ablated

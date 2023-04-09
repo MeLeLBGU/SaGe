@@ -153,7 +153,6 @@ def add_windows_to_sg_mp(model, updated_i, offset, updated_context_start, \
 
     # add the windows after the ablated token
     for index in range(updated_i+offset, updated_context_end):
-        #print("window for token {}".format(tokens_in_line[index]))
         try:
             window, _, _ = compute_window(index, updated_tokens_in_line, window_size)
             sg_wo += sg_for_window_mp(updated_tokens_in_line[index], window, target_embeddings, context_embeddings, log)
@@ -233,7 +232,6 @@ def get_diff_sg_wo_token_for_line(model, line_index, \
     last_time_offset = 0
     last_times_accumulate_offset = 0
     for i in indices:
-        #print("calling update for instance #{} of {}".format(i, token_to_ablate))
         sg_wo_diff, last_time_offset = update_sg_per_instance_of_token_mp(model, token_to_ablate, i, line, tokens_in_line_ints, tokens_in_line_pieces, last_times_accumulate_offset, sg_wo_diff, current_vocab, target_embeddings, context_embeddings, log, window_size)
         last_times_accumulate_offset += last_time_offset
 
@@ -243,21 +241,16 @@ def sg_wo_token_mp(model, token_to_ablate, current_total_sg, current_vocab, trai
     sg_wo = current_total_sg
 
     for line in corpus_lines:
-        #print("in loop")
         tokens_in_line_pieces = [model.id_to_piece(x) for x in model.encode(line, out_type=int)]
-        #print("checking token to ablate")
         if token_to_ablate not in tokens_in_line_pieces:
-            #print("{} not in {}".format(token_to_ablate, tokens_in_line))
             continue
 
         # For start, assume there are no overlaps in the windows of 2 instances
-        #print("compose indices")
         indices = [i for i, x in enumerate(tokens_in_line_pieces) if x == token_to_ablate]
 
         last_time_offset = 0
         last_times_accumulate_offset = 0
         for i in indices:
-            #print("calling update for instance #{} of {}".format(i, token_to_ablate))
             tokens_in_line_ints = [model.piece_to_id(t) for t in tokens_in_line_pieces]
             sg_wo, last_time_offset = update_sg_per_instance_of_token_mp(model, token_to_ablate, i, line, tokens_in_line_ints, tokens_in_line_pieces, last_times_accumulate_offset, sg_wo, current_vocab, target_embeddings, context_embeddings, log, window_size)
             last_times_accumulate_offset += last_time_offset
