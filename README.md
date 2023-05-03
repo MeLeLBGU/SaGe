@@ -1,5 +1,5 @@
 # SaGe
-Code for SaGe subword tokenizer (EACL 2023).
+Code for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)).
 
 
 
@@ -60,16 +60,17 @@ python Main.py \
 To re-execute it from where it stopped, just execute the same command with `--is_continue Y`.
 
 ## Citation
-(To be updated after proceedings are published)
 ```
-@inproceedings{yehezkel-pinter-2023-sage,
+@inproceedings{yehezkel-pinter-2023-incorporating,
     title = "Incorporating Context into Subword Vocabularies",
     author = "Yehezkel, Shaked  and
       Pinter, Yuval",
-    booktitle = "Proceedings of the 17th Conference of the European Chapter of the Association for Computational Linguistics: Main Volume",
+    booktitle = "Proceedings of the 17th Conference of the European Chapter of the Association for Computational Linguistics",
     month = may,
     year = "2023",
     address = "Dubrovnik, Croatia",
-    publisher = "Association for Computational Linguistics"
-    }
+    publisher = "Association for Computational Linguistics",
+    url = "https://aclanthology.org/2023.eacl-main.45",
+    pages = "623--635",
+}
 ```
