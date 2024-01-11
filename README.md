@@ -1,63 +1,84 @@
-# SaGe
+# SaGe 2.0
 Code for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)). Downstream applications of the tokenizer, i.e. pre-training an LLM model and evaluating on benchmarks, are independent of the tokenizer code - in the paper we used [academic budget BERT](https://github.com/IntelLabs/academic-budget-bert).
 
+This codebase now implements a faster, parallelizable version of the vocabulary learning algorithm (full documentation to be published around February-March 2024). The original version from the paper is saved under the `sage_v1` directory. They are logically equivalent.
 
 ## Requirements
-1. `sentencepiece` (version 0.1.95)
-2. `gensim`
-3. a prepared corpus - see `Dataset` section.
+1. `gensim`
+2. a prepared corpus - see `Dataset` section.
+3. an initial vocabulary - see `Dataset` section.
 
 This code does not require GPU\TPU.
 
 ## Dataset
-In the paper, we used wikipedia latest dumps - `wget https://dumps.wikimedia.org/<XX>wiki/latest/<XX>wiki-latest-pages-articles.xml.bz2`, where `<XX>` should be the language code (`en`, `tr`, etc.).
+In the paper, we used wikipedia latest dumps - `wget https://dumps.wikimedia.org/<XX>wiki/latest/<XX>wiki-latest-pages-articles.xml.bz2`, where `<XX>` should be the language code (`en`, `tr`, etc.). 
+We used them to create the corpus. From that corpus we use BPE tokenizer to create our initial vocabulary. 
 
-You can use any other dataset instead, the format for the script is one file with lines of raw text.
+You can use any other dataset instead.
+The expected format for the corpus is one file with lines of raw text.
+The expected format for the initial vocabulary is one vocab word per line, hex formatted.
 
 ## Notes
 This script can be re-executed "from checkpoint" -
-The vocabulary creation script saves several files ("checkpoints") to be able to later continue - for example it saves the seed, the embeddings and sentencepiece models, and even a list of tokens sorted according to the Skipgram objective.
+The vocabulary creation script saves several files ("checkpoints") to be able to later continue - for example it saves the partial corpus used, seed, the embeddings, and even a list of tokens sorted according to the Skipgram objective.
 
 ## Execution
 Execute `Main.py` from its working directory.
 The command line parameters are:
-	1. `experiment_name`: positional first parameter. A unique name for the experiment, results will be saved under that name (in the `results` directory).
-
+```
+	`experiment_name`: 	
+		positional first parameter. A unique name for the experiment. 
+		results will be saved under that name (in the `results` directory).
+```
 Required arguments:
-```	--final_vocab_size: expected final vocabulary size.
-	--initial_vocab_size: initial vocabulary size, from which ablation start.
-	--tokens_to_prune_in_iteration: number of tokens to prune in each iteration ($k$ in paper).
-	--tokens_to_consider_in_iteration: number of tokens to consider in each iteration ($M$ in paper).
-	--iterations_until_reranking: number of iterations until reranking ($m$ in paper).
-	--corpus_filepath: filepath for the full corpus (e.g. wiki corpus).
-	--partial_corpus_filepath: where to create a partial corpus file in case of thousands_of_corpus_lines argument supplied.
+```	
+	--corpus_filepath: filepath for the full corpus (e.g. wiki corpus). Foramt is lines of raw text.
+	--initial_vocabulary_filepath: initial vocabulary, hex formatted, one vocab word per line. 
+	--vocabulary_schedule: what vocabulary sizes are we aiming for. Tokenization won't be done on the last value.
+	--embeddings_schedule: from vocabulary_schedule, in which steps we should re-run embeddings
 ```
 	
 Default override arguments:
 ```
-	--is_continue: is this execution continuing a former execiution of the same experiment: [Y/N]. default="N".
-	--thousands_of_corpus_lines: number of corpus lines - in thousands. default=200.
-	--max_lines_per_token: max number of lines to consider for each token in the objective calculation (not mentioned in the paper, affects a small portion of the vocabulary responsible for many unnecessary calculations). default=1000.
-	--window_size: window size for the Skipgram objective calculation, as well as for the embeddings calculation. default=5.
+	--partial_corpus_filepath: where to create / load partial corpus file. 
+                Default is empty string for creating partial corpus under 'data' folder.
+	--partial_corpus_line_number: number of lines for partial corpus - in thousands. Default is 1000.
+	--max_len: max length of tokens in bytes. Default is 16.
+	--workers: number of worker threads to use. Default is max(1, mp.cpu_count()-1).
+	--random_seed: random seed value. Default is random.randint(1, 1000).
+	
+	word2vec arguments:
+	--word2vec_D: word2vec embedding vector length. Default is 50
+	--word2vec_N: word2vec number of negative samples. Default is 15
+	--word2vec_ALPHA: word2vec Initial learning rate. Default is 0.025
+	--word2vec_window_size: word2vec context window size. Default is 5
+	--word2vec_min_count: word2vec minimum count of word. Default is 1, i.e. must be used at least once
+	--word2vec_sg: word2vec skip-gram if 1; otherwise CBOW. Default is 1
+	
 ```
 
 Example:
 ```    
-python Main.py \
+python main.py \
         exp_name \
-        --final_vocab_size 16000 \
-        --initial_vocab_size 20000 \
-        --tokens_to_prune_in_iteration 50 \
-        --tokens_to_consider_in_iteration 2000 \
-        --iterations_until_reranking 15 \
         --corpus_filepath data/wiki_lines.txt \
+        --initial_vocabulary_filepath data/initial_vocab_hex.vocab \
+        --vocabulary_schedule 262144 229376 196608 163840 131072 98304 65536 57344 49152 40960 32768 16384 \
+        --embeddings_schedule 262144 131072 65536 49152 40960 32768 \
         --partial_corpus_filepath data/wiki_lines_partial.txt \
-        --thousands_of_corpus_lines 2000
+        --partial_corpus_line_number 500 \
+        --max_len 17 \
+        --workers 4 \
+        --random_seed 1234
 ```
 
-To re-execute from a checkpoint, just execute the same command with `--is_continue Y`. The script will then search for those files under the `results/exp_name` directory.
+To re-execute from a checkpoint, just execute the same command. By default, the script searches for already existing files under `results/exp_name` directory.
 
 ## Citation
+
+Version 2.0 was mostly developed by Kensho Technologies, LLC, and ported by Bar Gazit. Citation TBA.
+
+Version 1.0 was developed by Shaked Yehezkel and Yuval Pinter, please use this citation:
 ```
 @inproceedings{yehezkel-pinter-2023-incorporating,
     title = "Incorporating Context into Subword Vocabularies",
