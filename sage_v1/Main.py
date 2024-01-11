@@ -13,7 +13,7 @@ from os.path import exists
 import os
 
 # Import From Python-Modules
-sys.path.insert(0, "./Python-Modules")
+sys.path.insert(0, "Python-Modules")
 import Utils
 import Corpus
 import Logger

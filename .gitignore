@@ -117,6 +117,9 @@ venv.bak/
 # Rope project settings
 .ropeproject
 
+# pycharm project settings
+.idea
+
 # mkdocs documentation
 /site
 
@@ -127,3 +130,7 @@ dmypy.json
 
 # Pyre type checker
 .pyre/
+
+data
+logs
+results

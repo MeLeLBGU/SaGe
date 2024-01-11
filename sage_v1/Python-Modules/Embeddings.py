@@ -38,7 +38,7 @@ class EmbeddingsTrainer:
                 embeddings[i] = word2vec_model.wv[ith_token]
             else:
                 self._log.warning("No wv for token {}. Assigning random vector...".format(ith_token))
-                embeddings[i] = np.random.uniform(low=-0.5/Parameters.D, high=0.5/Parameters.D, size=(1, Parameters.D))
+                embeddings[i] = np.random.uniform(low=-0.5 / Parameters.D, high=0.5 / Parameters.D, size=(1, Parameters.D))
 
         return embeddings
 
