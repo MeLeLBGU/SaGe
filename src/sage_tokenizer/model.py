@@ -2,8 +2,8 @@
 
 import numpy as np
 
-from src.HFEncoding import HFEncoding
-from src.utils import verify_all_single_byte_exist_in_vocab
+from .HFEncoding import HFEncoding
+from .utils import verify_all_single_byte_exist_in_vocab
 
 
 class SaGeTokenizer:

@@ -1,12 +1,13 @@
 # SaGe 2.0
-Code for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)). Downstream applications of the tokenizer, i.e. pre-training an LLM model and evaluating on benchmarks, are independent of the tokenizer code - in the paper we used [academic budget BERT](https://github.com/IntelLabs/academic-budget-bert).
+Version 2.0 for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)). Downstream applications of the tokenizer, i.e. pre-training an LLM model and evaluating on benchmarks, are independent of the tokenizer code - in the paper we used [academic budget BERT](https://github.com/IntelLabs/academic-budget-bert).
 
-This codebase now implements a faster, parallelizable version of the vocabulary learning algorithm (full documentation to be published around February-March 2024). The original version from the paper is saved under the `sage_v1` directory. They are logically equivalent.
+SaGe 2.0 implements a faster, parallelizable version of the vocabulary learning algorithm.
 
 ## Requirements
-1. `gensim`
-2. a prepared corpus - see `Dataset` section.
-3. an initial vocabulary - see `Dataset` section.
+1. `gensim==4.3.2`
+2. `scipy==1.12.0`
+3. a prepared corpus - see `Dataset` section.
+4. an initial vocabulary - see `Dataset` section.
 
 This code does not require GPU\TPU.
 
@@ -23,7 +24,7 @@ This script can be re-executed "from checkpoint" -
 The vocabulary creation script saves several files ("checkpoints") to be able to later continue - for example it saves the partial corpus used, seed, the embeddings, and even a list of tokens sorted according to the Skipgram objective.
 
 ## Execution
-Execute `Main.py` from its working directory.
+Execute `main.py` from its working directory.
 The command line parameters are:
 ```
 	`experiment_name`: 	
@@ -70,6 +71,16 @@ python main.py \
         --max_len 17 \
         --workers 4 \
         --random_seed 1234
+```
+
+Alternatively, run the python code directly:
+```python
+from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
+vocab_builder = SaGeVocabBuilder(full_vocab_schedule, embeddings_schedule, max_len, workers_number, random_seed, 
+                                 word2vec_d, word2vec_n, word2vec_alpha, word2vec_window_size, word2vec_min_count, word2vec_sg)
+vocab_builder.build_vocab(experiment_name, corpus_filepath, vocabulary_filepath, partial_corpus_filepath, 
+                          partial_corpus_line_number) 
+                     
 ```
 
 To re-execute from a checkpoint, just execute the same command. By default, the script searches for already existing files under `results/exp_name` directory.

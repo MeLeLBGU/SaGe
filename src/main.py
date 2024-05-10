@@ -4,8 +4,7 @@ import argparse
 import multiprocessing as mp
 import random
 
-from src.Word2VecParams import Word2VecParams
-from src.runner import run_tokenizer
+from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
 
 
 def load_args():
@@ -27,10 +26,10 @@ def load_args():
                         help="number of lines for partial corpus - in thousands. Default is 1000")
     parser.add_argument("--max_len", type=int, default=16,
                         help="max length of tokens in bytes. Default is 16")
-    parser.add_argument("--workers", type=int, default=max(1, mp.cpu_count()-1),
+    parser.add_argument("--workers", type=int, default=max(1, mp.cpu_count() - 1),
                         help="number of worker threads to use. Default is max(1, mp.cpu_count()-1)")
     parser.add_argument("--random_seed", type=int, default=random.randint(1, 10000),
-                        help="random seed value. Default is random.randint(1, 1000)")
+                        help="random seed value. Default is random.randint(1, 10000)")
 
     # word2vec params
     parser.add_argument("--word2vec_D", type=int, default=50,
@@ -51,24 +50,24 @@ def load_args():
 
 if __name__ == '__main__':
     args = load_args()
-
-    word2vec_params = Word2VecParams(
-        D=args['word2vec_D'],
-        N=args['word2vec_N'],
-        ALPHA=args['word2vec_ALPHA'],
-        window_size=args['word2vec_window_size'],
-        min_count=args['word2vec_min_count'],
-        sg=args['word2vec_sg']
+    vocab_builder = SaGeVocabBuilder(
+        args['vocabulary_schedule'],
+        args['embeddings_schedule'],
+        args['max_len'],
+        args['workers'],
+        args['random_seed'],
+        args['word2vec_D'],
+        args['word2vec_N'],
+        args['word2vec_ALPHA'],
+        args['word2vec_window_size'],
+        args['word2vec_min_count'],
+        args['word2vec_sg']
     )
 
-    run_tokenizer(args['experiment_name'],
-                  args['corpus_filepath'],
-                  args['partial_corpus_filepath'],
-                  args['partial_corpus_line_number'],
-                  args['initial_vocabulary_filepath'],
-                  args['max_len'],
-                  args['workers'],
-                  args['vocabulary_schedule'],
-                  args['embeddings_schedule'],
-                  args['random_seed'],
-                  word2vec_params)
+    vocab_builder.build_vocab(
+        args['experiment_name'],
+        args['corpus_filepath'],
+        args['initial_vocabulary_filepath'],
+        args['partial_corpus_filepath'],
+        args['partial_corpus_line_number'],
+    )
