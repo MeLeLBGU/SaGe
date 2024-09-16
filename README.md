@@ -24,40 +24,34 @@ This script can be re-executed "from checkpoint" -
 The vocabulary creation script saves several files ("checkpoints") to be able to later continue - for example it saves the partial corpus used, seed, the embeddings, and even a list of tokens sorted according to the Skipgram objective.
 
 ## Execution
-Execute `main.py` from its working directory.
+Execute `main.py` from its working directory.   
 The command line parameters are:
-```
-	`experiment_name`: 	
-		positional first parameter. A unique name for the experiment. 
-		results will be saved under that name (in the `results` directory).
-```
+
+- `experiment_name`: Positional first parameter - a unique name for the experiment. Results will be saved under that name (in the `results` directory).
+
 Required arguments:
-```	
-	--corpus_filepath: filepath for the full corpus (e.g. wiki corpus). Foramt is lines of raw text.
-	--initial_vocabulary_filepath: initial vocabulary, hex formatted, one vocab word per line. 
-	--vocabulary_schedule: what vocabulary sizes are we aiming for. Tokenization won't be done on the last value.
-	--embeddings_schedule: from vocabulary_schedule, in which steps we should re-run embeddings
-```
+
+- `corpus_filepath`: filepath for the full corpus (e.g. wiki corpus). Foramt is lines of raw text.
+- `initial_vocabulary_filepath`: initial vocabulary, hex formatted, one vocab word per line. 
+- `vocabulary_schedule`: what vocabulary sizes are we aiming for. **Note:** Tokenization won't be done for the last vocab size.
+- `embeddings_schedule`: from vocabulary_schedule, in which steps we should re-run embeddings (similar to *l* in paper).
 	
 Default override arguments:
-```
-	--partial_corpus_filepath: where to create / load partial corpus file. 
-                Default is empty string for creating partial corpus under 'data' folder.
-	--partial_corpus_line_number: number of lines for partial corpus - in thousands. Default is 1000.
-	--max_len: max length of tokens in bytes. Default is 16.
-	--workers: number of worker threads to use. Default is max(1, mp.cpu_count()-1).
-	--random_seed: random seed value. Default is random.randint(1, 1000).
-	
-	word2vec arguments:
-	--word2vec_D: word2vec embedding vector length. Default is 50
-	--word2vec_N: word2vec number of negative samples. Default is 15
-	--word2vec_ALPHA: word2vec Initial learning rate. Default is 0.025
-	--word2vec_window_size: word2vec context window size. Default is 5
-	--word2vec_min_count: word2vec minimum count of word. Default is 1, i.e. must be used at least once
-	--word2vec_sg: word2vec skip-gram if 1; otherwise CBOW. Default is 1
-	
-```
 
+- `partial_corpus_filepath`: where to create / load partial corpus file. Default is `''` for creating partial corpus under 'data' folder.
+- `partial_corpus_line_number`: number of lines for partial corpus - in thousands. Default is `1000`.
+- `max_len`: max length of tokens in bytes. Default is `16`.
+- `workers`: number of worker threads to use. Default is `max(1, mp.cpu_count()-1)`.
+- `random_seed`: random seed value. Default is `random.randint(1, 1000)`.
+
+- **word2vec arguments:**
+  - `word2vec_D`: word2vec embedding vector length. Default is `50`
+  - `word2vec_N`: word2vec number of negative samples. Default is `15`
+  - `word2vec_ALPHA`: word2vec Initial learning rate. Default is `0.025`
+  - `word2vec_window_size`: word2vec context window size. Default is `5`
+  - `word2vec_min_count`: word2vec minimum count of word. Default is `1`, i.e. must be used at least once
+  - `word2vec_sg`: word2vec skip-gram if 1; otherwise CBOW. Default is `1`
+	
 Example:
 ```    
 python main.py \
@@ -78,12 +72,21 @@ Alternatively, run the python code directly:
 from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
 vocab_builder = SaGeVocabBuilder(full_vocab_schedule, embeddings_schedule, max_len, workers_number, random_seed, 
                                  word2vec_d, word2vec_n, word2vec_alpha, word2vec_window_size, word2vec_min_count, word2vec_sg)
-vocab_builder.build_vocab(experiment_name, corpus_filepath, vocabulary_filepath, partial_corpus_filepath, 
-                          partial_corpus_line_number) 
+vocab_builder.build_vocab(experiment_name, corpus_filepath, vocabulary_filepath, partial_corpus_filepath, partial_corpus_line_number) 
                      
 ```
 
-To re-execute from a checkpoint, just execute the same command. By default, the script searches for already existing files under `results/exp_name` directory.
+### API differences from **SaGe 1.0**:
+- **Argument `final_vocab_size` is obsolete**, and replaced by the last value of `vocabulary_schedule`.  
+- In **SaGe 1.0** the algorithm started with running *BPE* to create an initial vocab in a desired size (*V×n* in paper).  
+Now, the algorithm accepts an already created vocabulary file as input, **making argument `initial_vocab_size` obsolete**. 
+- In **SaGe 1.0**, after the initial vocabulary created, we iteratively ablated constant number of tokens (*k* in paper), 
+until the final vocab size (*V*) was reached.   
+Now, the user can directly choose the intermediate vocabulary sizes, thereby defining the ablation schedule (i.e., the difference between each adjacent vocab sizes), **making the ablation size dynamic and `tokens_to_prune_in_iteration` obsolete**. 
+- Due to performance improvement, reranking happens every iteration and all tokens are considered for ablation, **making arguments `iterations_until_reranking` (*m* in paper) and `tokens_to_consider_in_iteration` (*M* in paper) obsolete**. 
+- In order to re-execute from a checkpoint, just execute the same command. By default, the script searches for already existing files under `results/exp_name` directory. **Argument `is_continue` is obsolete**.
+- Argument `thousands_of_corpus_lines` name changed to `partial_corpus_line_number`. 
+- Argument `max_lines_per_token` is obsolete, all lines will be considered for each token in the objective calculation.
 
 ## Citation
 
