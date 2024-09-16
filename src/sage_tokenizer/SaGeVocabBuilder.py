@@ -156,35 +156,35 @@ class SaGeVocabBuilder:
             save_stats(stats, stats_folder, target_vocab_size)
 
             # these are the tokens to be removed
-            tokens_to_prune = set([sage_model.id_to_bytes(tid) for (loss, tid) in sorted_losses[:num_tokens_to_prune]])
+            tokens_to_prune = {sage_model.id_to_bytes(tid) for (loss, tid) in sorted_losses[:num_tokens_to_prune]}
             # double check there are no single bytes tokens to prune here
             single_byte_tokens_to_prune = [token for token in tokens_to_prune if len(token) == 1]
             assert len(single_byte_tokens_to_prune) == 0
 
             # our active vocabulary *after* pruning
             # is active if it has an entry in token_to_losses
-            active_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            active_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                             if tid in token_to_losses and tok not in tokens_to_prune}
 
             # our overall vocabulary after pruning
-            target_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            target_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                             if tok not in tokens_to_prune}
 
             # the deleted items
-            deleted_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            deleted_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                              if tok in tokens_to_prune}
 
-            vocab_save_name = f"{vocab_folder}/sage_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving intermediate vocab of size {len(target_vocab)} to {vocab_save_name}")
+            vocab_save_name = vocab_folder / f"sage_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving intermediate vocab of size {len(target_vocab)} to {vocab_save_name.as_posix()}")
             write_vocab(target_vocab, vocab_save_name)
 
-            active_save_name = f"{vocab_folder}/active_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving active vocab of size {len(active_vocab)} to {active_save_name}")
+            active_save_name = vocab_folder / f"active_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving active vocab of size {len(active_vocab)} to {active_save_name.as_posix()}")
             write_vocab(active_vocab, active_save_name)
 
             # save the deleted ones too for analysis, with the original size
-            deleted_save_name = f"{vocab_folder}/deleted_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving deleted vocab of size {len(deleted_vocab)} to {deleted_save_name}")
+            deleted_save_name = vocab_folder / f"deleted_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving deleted vocab of size {len(deleted_vocab)} to {deleted_save_name.as_posix()}")
             write_vocab(deleted_vocab, deleted_save_name)
 
             # now update the internal state of sage_model to use the new smaller vocab

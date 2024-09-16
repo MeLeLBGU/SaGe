@@ -11,10 +11,10 @@ class SaGeTokenizer:
 
     def __init__(self, initial_vocabulary, max_len: int=16):
         self.hfe = HFEncoding()
-        self.byte_vocab: Dict[bytes, int] = None
+        self.byte_vocab: Dict[bytes, int]     = None
         self.inv_byte_vocab: Dict[int, bytes] = None
-        self.str_vocab: Dict[str, int] = None
-        self.inv_str_vocab: Dict[int, str] = None
+        self.str_vocab: Dict[str, int]        = None
+        self.inv_str_vocab: Dict[int, str]    = None
 
         self.set_vocabulary(initial_vocabulary)
         self.max_len = max_len

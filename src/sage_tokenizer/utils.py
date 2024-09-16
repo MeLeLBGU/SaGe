@@ -1,5 +1,5 @@
 # Copyright © 2023 Kensho Technologies, LLC
-from typing import Iterable, Tuple, List, Optional
+from typing import Iterable, Tuple, List, Optional, Dict
 
 import json
 import logging
@@ -18,13 +18,12 @@ from .model import SaGeTokenizer
 from .paths import getDataFolder, getLogsFolder, getResultsFolder
 
 
-def write_vocab(vocab, filename):
+def write_vocab(vocab: Dict[bytes,int], filename: Path):
     """
-    Dump the vocab to a file, encoded as characters here.
-    No special tokens are added; they are saved in same order by index, so should preserve order.
+    Dump the byte vocab to a file, encoded as hex characters inside this function.
+    Saved in same order by index, so should preserve order.
+    No special tokens are added.
     """
-    vocab_size = len(vocab)
-
     # write these in increasing index order
     # so same as any previous order
     byindex = sorted([(idx, token) for token, idx in vocab.items()])
@@ -59,7 +58,6 @@ def load_vocab(vocab_filepath: Path) -> List[bytes]:
     Input file has one vocab word per line, each hex encoded.
     """
     vocab_filepath = Path(vocab_filepath)
-
     if not vocab_filepath.exists():
         raise FileNotFoundError(f'Missing vocab file: {vocab_filepath.as_posix()}')
 
@@ -141,7 +139,7 @@ def compute_losses(losses, all_triples, embeddings):
 
 
 def run_sage_parallel(embeddings, partial_corpus, sage_model: SaGeTokenizer, workers_number: int):
-    logging.info(f"Splitting Data into {workers_number} chunks.")
+    logging.info(f"Splitting data into {workers_number} chunks.")
     data_chunk_gen = divide_data_by_num(partial_corpus, workers_number)
 
     # these get aggregated over each chunk
