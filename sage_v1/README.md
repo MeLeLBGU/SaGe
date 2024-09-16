@@ -24,7 +24,8 @@ The command line parameters are:
 	1. `experiment_name`: positional first parameter. A unique name for the experiment, results will be saved under that name (in the `results` directory).
 
 Required arguments:
-```	--final_vocab_size: expected final vocabulary size.
+```	
+	--final_vocab_size: expected final vocabulary size.
 	--initial_vocab_size: initial vocabulary size, from which ablation start.
 	--tokens_to_prune_in_iteration: number of tokens to prune in each iteration ($k$ in paper).
 	--tokens_to_consider_in_iteration: number of tokens to consider in each iteration ($M$ in paper).
