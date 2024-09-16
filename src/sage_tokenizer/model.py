@@ -1,19 +1,20 @@
 # Copyright © 2023 Kensho Technologies, LLC
 
+from typing import List, Dict, Union
+
 import numpy as np
 
 from .HFEncoding import HFEncoding
-from .utils import verify_all_single_byte_exist_in_vocab
 
 
 class SaGeTokenizer:
 
-    def __init__(self, initial_vocabulary, max_len=16):
+    def __init__(self, initial_vocabulary, max_len: int=16):
         self.hfe = HFEncoding()
-        self.byte_vocab = None
-        self.inv_byte_vocab = None
-        self.str_vocab = None
-        self.inv_str_vocab = None
+        self.byte_vocab: Dict[bytes, int] = None
+        self.inv_byte_vocab: Dict[int, bytes] = None
+        self.str_vocab: Dict[str, int] = None
+        self.inv_str_vocab: Dict[int, str] = None
 
         self.set_vocabulary(initial_vocabulary)
         self.max_len = max_len
@@ -21,7 +22,7 @@ class SaGeTokenizer:
     # given an order list of bytes for vocabulary
     # create our internal structures
     # overwriting any previous values
-    def set_vocabulary(self, new_vocab: list[bytes]):
+    def set_vocabulary(self, new_vocab: List[bytes]):
         self.byte_vocab = self.set_bytes_vocab(new_vocab)
 
         # make sure we always have all single bytes in vocabulary
@@ -37,7 +38,7 @@ class SaGeTokenizer:
         self.inv_str_vocab = {v: k for (k, v) in self.str_vocab.items()}
 
     @staticmethod
-    def set_bytes_vocab(new_vocab):
+    def set_bytes_vocab(new_vocab: List[bytes]) -> Dict[bytes, int]:
         # bytes : int index
         byte_vocab = {}
         for idx, token in enumerate(new_vocab):
@@ -46,31 +47,35 @@ class SaGeTokenizer:
             byte_vocab[token] = idx
         return byte_vocab
 
-    def id_to_bytes(self, token_id):
+    def id_to_bytes(self, token_id: int) -> bytes:
         return self.inv_byte_vocab[token_id]
 
-    def id_to_encoded(self, token_id):
+    def id_to_encoded(self, token_id: int) -> str:
         return self.inv_str_vocab[token_id]
 
-    def get_vocabulary(self):
+    def get_vocabulary(self) -> Dict[bytes, int]:
         return self.byte_vocab
 
-    def vocab_size(self):
+    def vocab_size(self) -> int:
         return len(self.byte_vocab)
 
-    # human readable for debugging
     def print_tokens(self, ids):
+        """
+        Human readable for debugging
+        """
         return [self.inv_byte_vocab[i] for i in ids]
 
-    # add all the single byte id's with a given score to some vocab
     def add_all_byte_ids(self, vocab, score=1e400):
+        """
+        Add all the single byte id's with a given score to some vocab
+        """
         for i in range(256):
             # what is the corresponding token id
             tid = self.byte_vocab[bytes([i])]
             # add that with a "good" score
             vocab[tid] = score
 
-    def tokenize(self, sent, tokens_only=False):
+    def tokenize(self, sent: Union[str,bytes], tokens_only: bool=False):
         if isinstance(sent, str):
             sent = bytes(sent, encoding='utf-8')
         data = []
@@ -89,18 +94,23 @@ class SaGeTokenizer:
                     break  # the for loop
         return data
 
-    # return the tokenization as tokens in encoded str form
     def tokenize_to_encoded_str(self, sent):
+        """
+        Return the tokenization as tokens in encoded str form
+        """
         return [self.inv_str_vocab[token_id] for token_id in self.tokenize(sent, tokens_only=True)]
 
-    # same but return byte form
     def tokenize_to_bytes(self, sent):
+        """
+        Same as tokenize_to_encoded_strbut return byte form
+        """
         return [self.inv_byte_vocab[token_id] for token_id in self.tokenize(sent, tokens_only=True)]
 
-    # add the appropriate (t,v,v') triples to our dictionary
-    # where t, v, and v' are all int indices
     @staticmethod
-    def do_triples(combined, pad, padleft, padright, cur_id, sign, triples):
+    def do_triples(combined, pad: int, padleft, padright, cur_id, sign, triples):
+        """
+        Add the appropriate (t,v,v') triples to our dictionary where t, v, and v' are all int indices.
+        """
         # where the right padding starts
         right_ind = len(combined) - padright
 
@@ -119,14 +129,12 @@ class SaGeTokenizer:
                     # add sign to the triples
                     triples[trip] = triples.get(trip, 0) + sign
 
-    # tokenize the sentence `sent`
-    # add to the counts in the triples dict
-    # tracking the (cur_id,t,c) for the ablated token cur_id,
-    # with target token t and context token c
-    # also updates the statistics in ablated_sizes
-    # returns the total_tokens from tokenizing `sent`
-    def fast_sage(self, sent, triples, ablated_sizes, pad=2, verbose=False):
-
+    def fast_sage(self, sent, triples, ablated_sizes, pad: int=2, verbose: bool=False) -> int:
+        """
+        Tokenize the sentence `sent`, add to the counts in the triples dict tracking the (cur_id,t,c) for the ablated
+        token cur_id, with target token t and context token c. Also updates the statistics in ablated_sizes.
+        Returns the total_tokens from tokenizing `sent`.
+        """
         n = len(sent)
 
         # returns triples of (ids, start_index, width)
@@ -232,3 +240,10 @@ class SaGeTokenizer:
             print("long max_len:", max_len, '"' + sent.decode('utf-8') + '"')
 
         return total_tokens
+
+
+def verify_all_single_byte_exist_in_vocab(vocab):
+    for i in range(256):
+        b = bytes([i])
+        if b not in vocab:
+            raise Exception(f"missing byte {b}")

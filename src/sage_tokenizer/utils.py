@@ -1,23 +1,27 @@
 # Copyright © 2023 Kensho Technologies, LLC
+from typing import Iterable, Tuple, List, Optional
 
 import json
 import logging
 import multiprocessing as mp
-import os
 import random
 import time
+from pathlib import Path
 
 import numpy as np
 from scipy.special import expit
 
+from .model import SaGeTokenizer
 
 # only log code outside of multiprocessing
 # logger = logging.getLogger(__name__)
 
-# dump the vocab to a file, encoded as characters here
-# no special tokens are added
-# are saved in same order by index, so should preserve order
+
 def write_vocab(vocab, filename):
+    """
+    Dump the vocab to a file, encoded as characters here.
+    No special tokens are added; they are saved in same order by index, so should preserve order.
+    """
     vocab_size = len(vocab)
 
     # write these in increasing index order
@@ -29,48 +33,55 @@ def write_vocab(vocab, filename):
             f.write(token.hex() + '\n')
 
 
-def save_sorted_losses(sage_model, sorted_losses, target_vocab_size, vocab_folder):
-    sorted_losses_filepath = f"{vocab_folder}/sorted_losses_before_{target_vocab_size}.txt"
+def save_sorted_losses(sage_model: SaGeTokenizer, sorted_losses, target_vocab_size: int, vocab_folder: Path):
+    vocab_folder = Path(vocab_folder)
+
+    sorted_losses_filepath = vocab_folder / f"sorted_losses_before_{target_vocab_size}.txt"
+    worst_500_filepath     = vocab_folder / f"worst_500_{target_vocab_size}.txt"
+    best_500_filepath      = vocab_folder / f"best_500_{target_vocab_size}.txt"
+
     logging.info(f"Saving sorted losses to {sorted_losses_filepath}")
-    write_sorted_losses_into_file(sorted_losses, sorted_losses_filepath, sage_model)
-    worst_500_filepath = f"{vocab_folder}/worst_500_{target_vocab_size}.txt"
+    write_sorted_losses_into_file(sorted_losses,   sorted_losses_filepath, sage_model)
     write_sorted_losses_into_file(sorted_losses[:500], worst_500_filepath, sage_model)
-    best_500_filepath = f"{vocab_folder}/best_500_{target_vocab_size}.txt"
     write_sorted_losses_into_file(sorted_losses[-500:], best_500_filepath, sage_model)
 
 
-def write_sorted_losses_into_file(sl, filename, sage_model):
+def write_sorted_losses_into_file(sl: Iterable[Tuple[float,int]], filename: Path, sage_model: SaGeTokenizer):
     with open(filename, 'w', encoding="utf-8") as f:
         for loss, tid in sl:
             f.write(sage_model.id_to_encoded(tid) + "\t" + str(loss) + "\n")
 
 
-# read our hex formatted vocab file
-# return a list of bytes objects
-# input file has one vocab word per line,
-# each hex encoded
-def load_vocab(vocab_filepath):
-    if not os.path.exists(vocab_filepath):
-        raise FileNotFoundError(f'Missing vocab file: {vocab_filepath}')
+def load_vocab(vocab_filepath: Path) -> List[bytes]:
+    """
+    Read our hex formatted vocab file, return a list of bytes objects.
+    Input file has one vocab word per line, each hex encoded.
+    """
+    vocab_filepath = Path(vocab_filepath)
 
-    with open(vocab_filepath) as vocab_file:
+    if not vocab_filepath.exists():
+        raise FileNotFoundError(f'Missing vocab file: {vocab_filepath.as_posix()}')
+
+    with open(vocab_filepath, "r") as vocab_file:
         # fromhex ignores whitespace from \n at end
         initial_vocab = [bytes.fromhex(token) for token in vocab_file.readlines()]
 
     return initial_vocab
 
 
-def load_corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_line_number):
-    if os.path.exists(partial_corpus_filepath):
-        # corpus already exists, directly loading
-        logging.info(f"Found Processed Partial Corpus. Directly Loading from {partial_corpus_filepath}...")
+def load_corpus(corpus_filepath: Path, partial_corpus_filepath: Optional[Path], partial_corpus_line_number: int) -> List[str]:
+    corpus_filepath         = Path(corpus_filepath)
+    partial_corpus_filepath = Path(partial_corpus_filepath) if isinstance(partial_corpus_filepath, str) else partial_corpus_filepath
+
+    if partial_corpus_filepath and partial_corpus_filepath.exists():  # Corpus already exists, directly loading
+        logging.info(f"Found pre-existing partial corpus. Loading from {partial_corpus_filepath.as_posix()}...")
         read_start = time.time()
-        with open(partial_corpus_filepath) as corpus_f:
+        with open(partial_corpus_filepath, "r") as corpus_f:
             partial_corpus = corpus_f.readlines()
         logging.info(f"Size of Corpus: {len(partial_corpus)}, time: {(time.time() - read_start):.2f}")
     else:
         read_start = time.time()
-        with open(corpus_filepath) as full_corpus_f:
+        with open(corpus_filepath, "r") as full_corpus_f:
             corpus = full_corpus_f.readlines()
             logging.info(f"Loading from Original Corpus. Number of lines: {len(corpus)}")
 
@@ -80,50 +91,47 @@ def load_corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_line_nu
         # may be same as original depending on partial_corpus_line_number
         write_start_time = time.time()
         partial_corpus = corpus[:partial_corpus_line_number * 1000]
-        corpus_filename = os.path.splitext(os.path.basename(corpus_filepath))[0]
 
-        if partial_corpus_filepath == "":
-            if not os.path.exists("data"):
-                logging.info("'data/' not found. Creating one for storing partial corpus...")
-                os.mkdir("data")
-            partial_corpus_filepath = f"data/{corpus_filename}_{len(partial_corpus)}.txt"
+        if partial_corpus_filepath is None:
+            data_path = Path(".") / "data"
+            data_path.mkdir(exist_ok=True)
+            partial_corpus_filepath = data_path / f"{corpus_filepath.stem}_{len(partial_corpus)}.txt"
 
         with open(partial_corpus_filepath, "w+") as partial_corpus_f:
             partial_corpus_f.writelines(partial_corpus)
-        logging.info(f"Partial corpus saved at {partial_corpus_filepath}. "
+        logging.info(f"Partial corpus saved at {partial_corpus_filepath.as_posix()}. "
                      f"Number of lines: {len(partial_corpus)}, "
                      f"time: {(time.time() - write_start_time):.2f}")
 
     return partial_corpus
 
 
-# Split the data given the number of chunks we expect
-# Returns a generator
 def divide_data_by_num(data, num_procs):
+    """
+    Split the data given the number of chunks we expect
+    Returns a generator
+    """
     size_per_chunk = len(data) // num_procs
     for i in range(0, len(data), size_per_chunk + 1):
         yield data[i: i + size_per_chunk + 1]
 
 
-# Split the data given the size of chunks we expect
-# Returns a generator
 def divide_data_by_size(data, size):
+    """
+    Split the data given the size of chunks we expect
+    Returns a generator
+    """
     for i in range(0, len(data), size):
         yield data[i: i + size]
 
 
-def verify_all_single_byte_exist_in_vocab(vocab):
-    for i in range(256):
-        b = bytes([i])
-        if b not in vocab:
-            raise Exception(f"missing byte {b}")
-
-
-# function for computing losses given triple counts and embeddings
-# losses : accumulate losses per ablated token, excluding the single byte ones, side effect this
-# all_triples : triple values to aggregate into losses
-# embeddings : embedding for each token
 def compute_losses(losses, all_triples, embeddings):
+    """
+    function for computing losses given triple counts and embeddings
+    losses : accumulate losses per ablated token, excluding the single byte ones, side effect this
+    all_triples : triple values to aggregate into losses
+    embeddings : embedding for each token
+    """
     target_ids, context_ids, count = zip(*[(target_id, context_id, count) for (_, target_id, context_id), count in all_triples.items()])
     target_embeddings = np.array([embeddings[target_id] for target_id in target_ids])
     context_embeddings = np.array([embeddings[context_id] for context_id in context_ids])
@@ -133,7 +141,7 @@ def compute_losses(losses, all_triples, embeddings):
         losses[ablated_token_id] = losses.get(ablated_token_id, 0.0) + triples_loss[idx]
 
 
-def run_sage_parallel(embeddings, partial_corpus, sage_model, workers_number):
+def run_sage_parallel(embeddings, partial_corpus, sage_model: SaGeTokenizer, workers_number: int):
     logging.info(f"Splitting Data into {workers_number} chunks.")
     data_chunk_gen = divide_data_by_num(partial_corpus, workers_number)
 
@@ -185,9 +193,11 @@ def run_sage_parallel(embeddings, partial_corpus, sage_model, workers_number):
     return overall_total_tokens, overall_total_triples, sage_losses, ablated_sizes
 
 
-# function that runs sage on each chunk of data (in parallelization)
-# note: this is called from multiprocessing, so use print rather than logging
-def sage_per_chunk(tid, model, data, embeddings, chunk_size=10000):
+def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=10000):
+    """
+    function that runs sage on each chunk of data (in parallelization)
+    note: this is called from multiprocessing, so use print rather than logging
+    """
     print(f"Starting chunk {tid}, with {len(data)} lines of data")
 
     start_time = time.time()
@@ -249,12 +259,12 @@ def sage_per_chunk(tid, model, data, embeddings, chunk_size=10000):
     return losses, total_tokens, total_triples, ablated_sizes
 
 
-def init_logger(experiment_name):
+def init_logger(experiment_name: str):
     timestamp_str = time.strftime("%Y%m%d_%H%M%S")
-    if not os.path.exists("logs"):
-        os.mkdir("logs")
-    log_filename = f'logs/{experiment_name}_{timestamp_str}.log'
-    logging.basicConfig(filename=log_filename,
+    logs_path = Path(".") / "logs"
+    logs_path.mkdir(exist_ok=True)
+    log_filename = logs_path / f"{experiment_name}_{timestamp_str}.log"
+    logging.basicConfig(filename=log_filename.as_posix(),
                         format="%(asctime)s - %(message)s",
                         datefmt="%m/%d/%Y %H:%M:%S",
                         level=logging.INFO)
@@ -262,36 +272,39 @@ def init_logger(experiment_name):
     print(f"Logs will be stored in {log_filename}")
 
 
-def get_output_folder(experiment_name):
-    if not os.path.exists("results"):
-        logging.info("\"results\" directory not found. Creating one for storing results")
-        os.mkdir("results")
-    results_path = "results/" + experiment_name
-    if not os.path.exists(results_path):
-        os.mkdir(results_path)
-    vocab_folder = results_path + "/sage_vocabs"
-    if not os.path.exists(vocab_folder):
-        os.mkdir(vocab_folder)
-    stats_folder = results_path + "/stats"
-    if not os.path.exists(stats_folder):
-        os.mkdir(stats_folder)
-    embeddings_folder = results_path + "/embeddings"
-    if not os.path.exists(embeddings_folder):
-        os.mkdir(embeddings_folder)
+def get_output_folder(experiment_name: str) -> Tuple[Path, Path, Path]:
+    results_path = Path(".") / "results" / experiment_name
+    results_path.mkdir(exist_ok=True, parents=True)
+
+    vocab_folder = results_path / "sage_vocabs"
+    vocab_folder.mkdir(exist_ok=True)
+
+    stats_folder = results_path / "stats"
+    stats_folder.mkdir(exist_ok=True)
+
+    embeddings_folder = results_path / "embeddings"
+    embeddings_folder.mkdir(exist_ok=True)
+
     return embeddings_folder, stats_folder, vocab_folder
 
 
-def set_random_seed(experiment_name, random_seed):
-    seed_filepath = f"results/{experiment_name}/seed.txt"
+def set_random_seed(experiment_name: str, random_seed: int):
+    # Log seed
+    results_path = Path(".") / "results"
+    seed_filepath = results_path / experiment_name / "seed.txt"
     with open(seed_filepath, "w+") as f:
         f.write(str(random_seed))
+
+    # Set seed
     random.seed(random_seed)
     np.random.seed(random_seed)
 
 
-def save_stats(stats, stats_folder, target_vocab_size):
-    json_stats = json.dumps(stats, indent=2)  # pretty print a bit
-    stats_filename = f"{stats_folder}/stats_{target_vocab_size}.json"
-    logging.info(f"Saving stats to {stats_filename}")
-    with open(stats_filename, 'wt') as f:
-        f.write(json_stats + "\n")
+def save_stats(stats: dict, stats_folder: Path, target_vocab_size: int):
+    stats_folder = Path(stats_folder)
+
+    stats_filename = stats_folder / f"stats_{target_vocab_size}.json"
+    logging.info(f"Saving stats to {stats_filename.as_posix()}")
+    with open(stats_filename, "w") as f:
+        json.dump(stats, f, indent=2)  # pretty print a bit
+        f.write("\n")

@@ -1,4 +1,6 @@
 # Copyright © 2023 Kensho Technologies, LLC
+from typing import List, Union, Optional
+from pathlib import Path
 
 import logging
 
@@ -11,9 +13,9 @@ from .utils import init_logger, set_random_seed, load_vocab, get_output_folder, 
 
 class SaGeVocabBuilder:
 
-    def __init__(self, full_vocab_schedule: list[int], embeddings_schedule: list[int], max_len=16, workers_number=1,
-                 random_seed=1234, word2vec_d=50, word2vec_n=15, word2vec_alpha=0.025, word2vec_window_size=5,
-                 word2vec_min_count=1, word2vec_sg=1):
+    def __init__(self, full_vocab_schedule: List[int], embeddings_schedule: List[int],
+                 max_len: int=16, workers_number: int=1, random_seed: int=1234,
+                 word2vec_d: int=50, word2vec_n: int=15, word2vec_alpha: float=0.025, word2vec_window_size: int=5, word2vec_min_count: int=1, word2vec_sg: bool=True):
         self.full_vocab_schedule = full_vocab_schedule
         self.embeddings_schedule = embeddings_schedule
         self.max_len = max_len
@@ -25,11 +27,15 @@ class SaGeVocabBuilder:
             ALPHA=word2vec_alpha,
             window_size=word2vec_window_size,
             min_count=word2vec_min_count,
-            sg=word2vec_sg
+            sg=int(word2vec_sg)  # 1 uses skip-gram, 0 uses CBoW.
         )
 
-    def build_vocab(self, experiment_name: str, corpus_filepath: str, vocabulary_filepath: str,
-                    partial_corpus_filepath="", partial_corpus_line_number=1000):
+    def build_vocab(self, experiment_name: str,
+                    corpus_filepath: Union[str,Path], vocabulary_filepath: Union[str,Path],
+                    partial_corpus_filepath: Optional[Union[str,Path]]=None, partial_corpus_line_number: int=1000):
+        corpus_filepath         = Path(corpus_filepath)
+        vocabulary_filepath     = Path(vocabulary_filepath)
+        partial_corpus_filepath = Path(partial_corpus_filepath) if isinstance(partial_corpus_filepath, str) else None
 
         init_logger(experiment_name)
         logging.info(f"Start experiment {experiment_name}")
@@ -39,7 +45,7 @@ class SaGeVocabBuilder:
         embeddings_folder, stats_folder, vocab_folder = get_output_folder(experiment_name)
         logging.info("Setting random seed")
         set_random_seed(experiment_name, self.random_seed)
-        logging.info(f"Loading initial vocabulary from file {vocabulary_filepath}")
+        logging.info(f"Loading initial vocabulary from file {vocabulary_filepath.as_posix()}")
         byte_vocab = load_vocab(vocabulary_filepath)
         logging.info(f"Finished loading initial vocabulary. Vocabulary size: {len(byte_vocab)}")
 
@@ -50,7 +56,7 @@ class SaGeVocabBuilder:
         logging.info("Initializing tokenizer")
         sage_model = SaGeTokenizer(byte_vocab, self.max_len)
 
-        logging.info(f"Loading Corpus from {corpus_filepath}")
+        logging.info(f"Loading Corpus from {corpus_filepath.as_posix()}")
         partial_corpus = load_corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_line_number)
         logging.info("Starting the training loop")
         vocab_schedule = self.full_vocab_schedule
@@ -72,7 +78,6 @@ class SaGeVocabBuilder:
         # stop one before the end, since we do i+1,
         # so we'll make the vocab of that final size, but won't do the tokenization on it
         while i < len(vocab_schedule) - 1:
-
             current_step_vocab_size = vocab_schedule[i]  # this will be the label used for files
             target_vocab_size = vocab_schedule[i + 1]
             actual_vocab_size = sage_model.vocab_size()
