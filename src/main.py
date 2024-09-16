@@ -1,8 +1,6 @@
 # Copyright © 2023 Kensho Technologies, LLC
 
 import argparse
-import multiprocessing as mp
-import random
 
 from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
 
@@ -26,10 +24,10 @@ def load_args():
                         help="number of lines for partial corpus - in thousands. Default is 1000")
     parser.add_argument("--max_len", type=int, default=16,
                         help="max length of tokens in bytes. Default is 16")
-    parser.add_argument("--workers", type=int, default=max(1, mp.cpu_count() - 1),
-                        help="number of worker threads to use. Default is max(1, mp.cpu_count()-1)")
-    parser.add_argument("--random_seed", type=int, default=random.randint(1, 10000),
-                        help="random seed value. Default is random.randint(1, 10000)")
+    parser.add_argument("--workers", type=int, default=1,
+                        help="number of worker threads to use. Default is 1")
+    parser.add_argument("--random_seed", type=int, default=1234,
+                        help="random seed value. Default is 1234")
 
     # word2vec params
     parser.add_argument("--word2vec_D", type=int, default=50,
