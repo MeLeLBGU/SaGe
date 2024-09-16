@@ -15,6 +15,7 @@ from .model import SaGeTokenizer
 
 # only log code outside of multiprocessing
 # logger = logging.getLogger(__name__)
+from .paths import getDataFolder, getLogsFolder, getResultsFolder
 
 
 def write_vocab(vocab, filename):
@@ -40,7 +41,7 @@ def save_sorted_losses(sage_model: SaGeTokenizer, sorted_losses, target_vocab_si
     worst_500_filepath     = vocab_folder / f"worst_500_{target_vocab_size}.txt"
     best_500_filepath      = vocab_folder / f"best_500_{target_vocab_size}.txt"
 
-    logging.info(f"Saving sorted losses to {sorted_losses_filepath}")
+    logging.info(f"Saving sorted losses to {sorted_losses_filepath.as_posix()}")
     write_sorted_losses_into_file(sorted_losses,   sorted_losses_filepath, sage_model)
     write_sorted_losses_into_file(sorted_losses[:500], worst_500_filepath, sage_model)
     write_sorted_losses_into_file(sorted_losses[-500:], best_500_filepath, sage_model)
@@ -93,9 +94,7 @@ def load_corpus(corpus_filepath: Path, partial_corpus_filepath: Optional[Path], 
         partial_corpus = corpus[:partial_corpus_line_number * 1000]
 
         if partial_corpus_filepath is None:
-            data_path = Path(".") / "data"
-            data_path.mkdir(exist_ok=True)
-            partial_corpus_filepath = data_path / f"{corpus_filepath.stem}_{len(partial_corpus)}.txt"
+            partial_corpus_filepath = getDataFolder() / f"{corpus_filepath.stem}_{len(partial_corpus)}.txt"
 
         with open(partial_corpus_filepath, "w+") as partial_corpus_f:
             partial_corpus_f.writelines(partial_corpus)
@@ -261,20 +260,17 @@ def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=
 
 def init_logger(experiment_name: str):
     timestamp_str = time.strftime("%Y%m%d_%H%M%S")
-    logs_path = Path(".") / "logs"
-    logs_path.mkdir(exist_ok=True)
-    log_filename = logs_path / f"{experiment_name}_{timestamp_str}.log"
+    log_filename = getLogsFolder() / f"{experiment_name}_{timestamp_str}.log"
     logging.basicConfig(filename=log_filename.as_posix(),
                         format="%(asctime)s - %(message)s",
                         datefmt="%m/%d/%Y %H:%M:%S",
                         level=logging.INFO)
 
-    print(f"Logs will be stored in {log_filename}")
+    print(f"Logs will be stored in {log_filename.as_posix()}")
 
 
 def get_output_folder(experiment_name: str) -> Tuple[Path, Path, Path]:
-    results_path = Path(".") / "results" / experiment_name
-    results_path.mkdir(exist_ok=True, parents=True)
+    results_path = getResultsFolder() / experiment_name
 
     vocab_folder = results_path / "sage_vocabs"
     vocab_folder.mkdir(exist_ok=True)
@@ -290,8 +286,7 @@ def get_output_folder(experiment_name: str) -> Tuple[Path, Path, Path]:
 
 def set_random_seed(experiment_name: str, random_seed: int):
     # Log seed
-    results_path = Path(".") / "results"
-    seed_filepath = results_path / experiment_name / "seed.txt"
+    seed_filepath = getResultsFolder() / experiment_name / "seed.txt"
     with open(seed_filepath, "w+") as f:
         f.write(str(random_seed))
 

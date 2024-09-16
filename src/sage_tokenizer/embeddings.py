@@ -22,6 +22,7 @@ from pathlib import Path
 #             yield self._model.tokenize_to_encoded_str(bytes(line, 'utf-8'))
 from .Word2VecParams import Word2VecParams
 from .model import SaGeTokenizer
+from .paths import getDataFolder
 
 
 def get_embeddings(vocab_size: int, embeddings_folder: Path, partial_corpus: List[str], sage_model: SaGeTokenizer, workers_number: int, word2vec_params: Word2VecParams):
@@ -49,7 +50,7 @@ def train_embeddings(sage_model: SaGeTokenizer, partial_corpus: List[str], worke
     # which gensim's word2vec wants to process things in parallel
     # see https://github.com/RaRe-Technologies/gensim/releases/tag/3.6.0
     # and https://github.com/RaRe-Technologies/gensim/blob/develop/docs/notebooks/Any2Vec_Filebased.ipynb
-    gensim_corpus_filepath = Path(".") / "data" / f"gensim_{sage_model.vocab_size()}.txt"
+    gensim_corpus_filepath = getDataFolder() / f"gensim_{sage_model.vocab_size()}.txt"
 
     # if already exists, use otherwise create the file
     if gensim_corpus_filepath.exists():
