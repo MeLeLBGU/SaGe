@@ -3,6 +3,21 @@ Version 2.0 for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org
 
 SaGe 2.0 implements a faster, parallelizable version of the vocabulary learning algorithm.
 
+```python
+from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
+vocab_builder = SaGeVocabBuilder(full_vocab_schedule=[262144, 229376, 196608, 163840, 131072, 98304, 65536, 57344, 49152, 40960, 32768, 16384], 
+                                 embeddings_schedule=[262144, 131072, 65536, 49152, 40960, 32768],
+                                 workers_number=4)
+
+vocab_builder.build_vocab(experiment_name='experiment_name', 
+                          corpus_filepath='data/wiki_lines.txt', 
+                          vocabulary_filepath='data/initial_vocab_hex.vocab')                     
+```
+SaGe tokenizer can be installed from PyPI:
+```
+pip install sage-tokenizer
+```
+
 ## Requirements
 1. `gensim==4.3.2`
 2. `scipy==1.12.0`
@@ -23,26 +38,23 @@ The expected format for the initial vocabulary is one vocab word per line, hex f
 This script can be re-executed "from checkpoint" -
 The vocabulary creation script saves several files ("checkpoints") to be able to later continue - for example it saves the partial corpus used, seed, the embeddings, and even a list of tokens sorted according to the Skipgram objective.
 
-## Execution
-Execute `main.py` from its working directory.   
-The command line parameters are:
-
-- `experiment_name`: Positional first parameter - a unique name for the experiment. Results will be saved under that name (in the `results` directory).
+## Arguments
 
 Required arguments:
 
-- `corpus_filepath`: filepath for the full corpus (e.g. wiki corpus). Foramt is lines of raw text.
+- `experiment_name`: Positional first parameter - a unique name for the experiment. Results will be saved under that name (in the `results` directory).
+- `corpus_filepath`: filepath for the full corpus (e.g. wiki corpus). Format is lines of raw text. A random subset from this file is used to create the partial corpus, which serves as the actual corpus for training.  
 - `initial_vocabulary_filepath`: initial vocabulary, hex formatted, one vocab word per line. 
 - `vocabulary_schedule`: what vocabulary sizes are we aiming for. **Note:** Tokenization won't be done for the last vocab size.
 - `embeddings_schedule`: from vocabulary_schedule, in which steps we should re-run embeddings (similar to *l* in paper).
 	
 Default override arguments:
 
-- `partial_corpus_filepath`: where to create / load partial corpus file. Default is `''` for creating partial corpus under 'data' folder.
+- `partial_corpus_filepath`: where to create / load partial corpus file. Default is `''` for creating partial corpus under 'data' folder. The partial corpus is a random subset of the full corpus and serves as the actual corpus used for training.
 - `partial_corpus_line_number`: number of lines for partial corpus - in thousands. Default is `1000`.
 - `max_len`: max length of tokens in bytes. Default is `16`.
-- `workers`: number of worker threads to use. Default is `max(1, mp.cpu_count()-1)`.
-- `random_seed`: random seed value. Default is `random.randint(1, 1000)`.
+- `workers`: number of worker threads to use. Default is `1`.
+- `random_seed`: random seed value. Default is `692653`.
 
 - **word2vec arguments:**
   - `word2vec_D`: word2vec embedding vector length. Default is `50`
@@ -51,7 +63,9 @@ Default override arguments:
   - `word2vec_window_size`: word2vec context window size. Default is `5`
   - `word2vec_min_count`: word2vec minimum count of word. Default is `1`, i.e. must be used at least once
   - `word2vec_sg`: word2vec skip-gram if 1; otherwise CBOW. Default is `1`
-	
+
+For execution via command line, run `main.py` from its working directory.   
+
 Example:
 ```    
 python main.py \
@@ -64,16 +78,7 @@ python main.py \
         --partial_corpus_line_number 500 \
         --max_len 17 \
         --workers 4 \
-        --random_seed 1234
-```
-
-Alternatively, run the python code directly:
-```python
-from sage_tokenizer.SaGeVocabBuilder import SaGeVocabBuilder
-vocab_builder = SaGeVocabBuilder(full_vocab_schedule, embeddings_schedule, max_len, workers_number, random_seed, 
-                                 word2vec_d, word2vec_n, word2vec_alpha, word2vec_window_size, word2vec_min_count, word2vec_sg)
-vocab_builder.build_vocab(experiment_name, corpus_filepath, vocabulary_filepath, partial_corpus_filepath, partial_corpus_line_number) 
-                     
+        --random_seed 692653
 ```
 
 ### API differences from **SaGe 1.0**:
