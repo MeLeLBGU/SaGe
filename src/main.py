@@ -26,8 +26,8 @@ def load_args():
                         help="max length of tokens in bytes. Default is 16")
     parser.add_argument("--workers", type=int, default=1,
                         help="number of worker threads to use. Default is 1")
-    parser.add_argument("--random_seed", type=int, default=1234,
-                        help="random seed value. Default is 1234")
+    parser.add_argument("--random_seed", type=int, default=692653,
+                        help="random seed value. Default is 692653")
 
     # word2vec params
     parser.add_argument("--word2vec_D", type=int, default=50,

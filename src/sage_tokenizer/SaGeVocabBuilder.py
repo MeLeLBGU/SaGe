@@ -12,7 +12,7 @@ from .utils import init_logger, set_random_seed, load_vocab, get_output_folder, 
 class SaGeVocabBuilder:
 
     def __init__(self, full_vocab_schedule: list[int], embeddings_schedule: list[int], max_len=16, workers_number=1,
-                 random_seed=1234, word2vec_d=50, word2vec_n=15, word2vec_alpha=0.025, word2vec_window_size=5,
+                 random_seed=692653, word2vec_d=50, word2vec_n=15, word2vec_alpha=0.025, word2vec_window_size=5,
                  word2vec_min_count=1, word2vec_sg=1):
         self.full_vocab_schedule = full_vocab_schedule
         self.embeddings_schedule = embeddings_schedule
