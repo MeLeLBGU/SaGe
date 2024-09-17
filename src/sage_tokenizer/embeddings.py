@@ -25,7 +25,7 @@ from .model import SaGeTokenizer
 from .paths import getDataFolder
 
 
-def get_embeddings(vocab_size: int, embeddings_folder: Path, partial_corpus: List[str], sage_model: SaGeTokenizer, workers_number: int, word2vec_params: Word2VecParams):
+def get_embeddings(vocab_size: int, embeddings_folder: Path, partial_corpus: List[str], sage_model: SaGeTokenizer, workers_number: int, word2vec_params: Word2VecParams) -> np.ndarray:
     logging.info(f"training Embeddings at vocab size {vocab_size}")
     # is there an embedding of this size
     embeddings_filepath = Path(embeddings_folder) / f"embeddings_{vocab_size}.npy"
@@ -43,7 +43,7 @@ def get_embeddings(vocab_size: int, embeddings_folder: Path, partial_corpus: Lis
     return embeddings
 
 
-def train_embeddings(sage_model: SaGeTokenizer, partial_corpus: List[str], workers: int, word2vec_params: Word2VecParams):
+def train_embeddings(sage_model: SaGeTokenizer, partial_corpus: List[str], workers: int, word2vec_params: Word2VecParams) -> np.ndarray:
     # sentences = CorpusIterator(model, corpus_filepath)
 
     # also save in a version of this with a sentence per line, whitespace per token
@@ -60,7 +60,7 @@ def train_embeddings(sage_model: SaGeTokenizer, partial_corpus: List[str], worke
         logging.info(f"starting tokenization of {len(partial_corpus)} lines for gensim")
         with open(gensim_corpus_filepath, "w", encoding="utf-8") as gensim_file:
             for i, line in enumerate(partial_corpus):
-                if i % 1000000 == 0:
+                if i % 1_000_000 == 0:
                     logging.info(f"tokenizing line {i}, time: {(time.time() - gensim_start):.2f}")
                 gensim_file.write(" ".join(sage_model.tokenize_to_encoded_str(bytes(line, 'utf-8'))) + "\n")
         logging.info(f"Gensim format data written: {gensim_corpus_filepath.as_posix()}, time: {(time.time()-gensim_start):.2f}")

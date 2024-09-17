@@ -1,10 +1,13 @@
 # Copyright © 2023 Kensho Technologies, LLC
 
-from typing import List, Dict, Union
+from typing import List, Dict, Union, Tuple
 
 import numpy as np
 
 from .HFEncoding import HFEncoding
+
+
+Tokenizable = Union[str,bytes]
 
 
 class SaGeTokenizer:
@@ -59,15 +62,15 @@ class SaGeTokenizer:
     def vocab_size(self) -> int:
         return len(self.byte_vocab)
 
-    def print_tokens(self, ids):
+    def print_tokens(self, ids: List[int]) -> List[bytes]:
         """
         Human readable for debugging
         """
         return [self.inv_byte_vocab[i] for i in ids]
 
-    def add_all_byte_ids(self, vocab, score=1e400):
+    def add_all_byte_ids(self, vocab: Dict[int,float], score: float=1e400):
         """
-        Add all the single byte id's with a given score to some vocab
+        For each single byte, look up its id, then assign the given score to that id in the given dictionary.
         """
         for i in range(256):
             # what is the corresponding token id
@@ -75,7 +78,10 @@ class SaGeTokenizer:
             # add that with a "good" score
             vocab[tid] = score
 
-    def tokenize(self, sent: Union[str,bytes], tokens_only: bool=False):
+    def tokenize(self, sent: Tokenizable, tokens_only: bool=False) -> Union[List[int], List[Tuple[int, int, int]]]:
+        """
+        Split the gives sentence into tokens and convert them to IDs.
+        """
         if isinstance(sent, str):
             sent = bytes(sent, encoding='utf-8')
         data = []
@@ -94,13 +100,13 @@ class SaGeTokenizer:
                     break  # the for loop
         return data
 
-    def tokenize_to_encoded_str(self, sent):
+    def tokenize_to_encoded_str(self, sent: Tokenizable) -> List[str]:
         """
         Return the tokenization as tokens in encoded str form
         """
         return [self.inv_str_vocab[token_id] for token_id in self.tokenize(sent, tokens_only=True)]
 
-    def tokenize_to_bytes(self, sent):
+    def tokenize_to_bytes(self, sent: Tokenizable) -> List[bytes]:
         """
         Same as tokenize_to_encoded_strbut return byte form
         """
@@ -129,7 +135,7 @@ class SaGeTokenizer:
                     # add sign to the triples
                     triples[trip] = triples.get(trip, 0) + sign
 
-    def fast_sage(self, sent, triples, ablated_sizes, pad: int=2, verbose: bool=False) -> int:
+    def fast_sage(self, sent: Tokenizable, triples, ablated_sizes, pad: int=2, verbose: bool=False) -> int:
         """
         Tokenize the sentence `sent`, add to the counts in the triples dict tracking the (cur_id,t,c) for the ablated
         token cur_id, with target token t and context token c. Also updates the statistics in ablated_sizes.

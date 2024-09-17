@@ -103,7 +103,7 @@ def load_corpus(corpus_filepath: Path, partial_corpus_filepath: Optional[Path], 
     return partial_corpus
 
 
-def divide_data_by_num(data, num_procs):
+def divide_data_by_num(data: List[str], num_procs: int) -> Iterable[List[str]]:
     """
     Split the data given the number of chunks we expect
     Returns a generator
@@ -138,7 +138,7 @@ def compute_losses(losses, all_triples, embeddings):
         losses[ablated_token_id] = losses.get(ablated_token_id, 0.0) + triples_loss[idx]
 
 
-def run_sage_parallel(embeddings, partial_corpus, sage_model: SaGeTokenizer, workers_number: int):
+def run_sage_parallel(embeddings: np.ndarray, partial_corpus: List[str], sage_model: SaGeTokenizer, workers_number: int):
     logging.info(f"Splitting data into {workers_number} chunks.")
     data_chunk_gen = divide_data_by_num(partial_corpus, workers_number)
 
