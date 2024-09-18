@@ -7,4 +7,4 @@ python main.py exp_name \
     --partial_corpus_line_number 500 \
     --max_len 17 \
     --workers 4 \
-    --random_seed 1234
+    --random_seed 692653

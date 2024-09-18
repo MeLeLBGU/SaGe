@@ -14,7 +14,7 @@ from .utils import init_logger, set_random_seed, load_vocab, get_output_folder, 
 class SaGeVocabBuilder:
 
     def __init__(self, full_vocab_schedule: List[int], embeddings_schedule: List[int],
-                 max_len: int=16, workers_number: int=1, random_seed: int=1234,
+                 max_len: int=16, workers_number: int=1, random_seed: int=692653,
                  word2vec_d: int=50, word2vec_n: int=15, word2vec_alpha: float=0.025, word2vec_window_size: int=5, word2vec_min_count: int=1, word2vec_sg: bool=True):
         self.full_vocab_schedule = full_vocab_schedule
         self.embeddings_schedule = embeddings_schedule
