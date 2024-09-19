@@ -9,9 +9,9 @@ vocab_builder = SaGeVocabBuilder(full_vocab_schedule=[262144, 229376, 196608, 16
                                  embeddings_schedule=[262144, 131072, 65536, 49152, 40960, 32768],
                                  workers_number=4)
 
-vocab_builder.build_vocab(experiment_name='experiment_name', 
-                          corpus_filepath='data/wiki_lines.txt', 
-                          vocabulary_filepath='data/initial_vocab_hex.vocab')                     
+vocab_builder.build_vocab(experiment_name='experiment_name',
+                          initial_vocabulary='data/initial_vocab_hex.vocab',
+                          corpus='data/wiki_lines.txt')
 ```
 SaGe tokenizer can be installed from PyPI:
 ```

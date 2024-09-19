@@ -8,7 +8,7 @@ from .Word2VecParams import Word2VecParams
 from .embeddings import get_embeddings
 from .model import SaGeTokenizer
 from .utils import init_logger, set_random_seed, load_vocab, get_output_folder, load_corpus, run_sage_parallel, \
-    save_sorted_losses, save_stats, write_vocab
+    save_sorted_losses, save_stats, write_vocab, TextSource
 
 
 class SaGeVocabBuilder:
@@ -31,12 +31,27 @@ class SaGeVocabBuilder:
         )
 
     def build_vocab(self, experiment_name: str,
-                    corpus_filepath: Union[str,Path], vocabulary_filepath: Union[str,Path],
-                    partial_corpus_filepath: Optional[Union[str,Path]]=None, partial_corpus_line_number: int=1000):
-        corpus_filepath         = Path(corpus_filepath)
-        vocabulary_filepath     = Path(vocabulary_filepath)
-        partial_corpus_filepath = Path(partial_corpus_filepath) if isinstance(partial_corpus_filepath, str) else None
-
+                    initial_vocabulary: TextSource,
+                    corpus: TextSource, k_corpus_examples: int=1_000, corpus_cache: Union[str,Path]=""):
+        """
+        :param experiment_name: Prefix for the outputs of this run.
+        :param initial_vocabulary: The set of subwords to start from. The subwords are expected to be strings obtained
+                                   by converting the actual subword strings to UTF-8 bytes and then converting those to
+                                   hexadecimal.
+                                   - If you have them as a set of strings V taken from the full Unicode domain, we expect
+                                     {token.encode("utf-8").hex() for token in V}.
+                                   - If you have them as a set of strings V in some custom pretokenisation space (e.g. with
+                                     HuggingFace encoding, with boundary markers, ...), you're out of luck currently.
+                                     You can try to invert your
+        :param corpus: Either an iterable of strings or a text file. If the latter, every newline starts a new example.
+        :param k_corpus_examples: How many k's (thousands) of examples to sample from the corpus.
+        :param corpus_cache: If an empty string, examples are streamed from the given corpus directly (after shuffling and
+                             truncating) and GenSim's slower implementation is used.
+                             Else, all used examples from the corpus will be cached into a text file. The file will be
+                             located under PATH_SAGE/data/ if the given value is a string with no slashes, otherwise
+                             under the specific path it points to. This file may be huge, but GenSim runs much faster
+                             when it runs on a file rather than a stream.
+        """
         init_logger(experiment_name)
         logging.info(f"Start experiment {experiment_name}")
         logging.info(f"Process will use up to {self.workers_number} worker threads.")
@@ -45,8 +60,8 @@ class SaGeVocabBuilder:
         embeddings_folder, stats_folder, vocab_folder = get_output_folder(experiment_name)
         logging.info("Setting random seed")
         set_random_seed(experiment_name, self.random_seed)
-        logging.info(f"Loading initial vocabulary from file {vocabulary_filepath.as_posix()}")
-        byte_vocab = load_vocab(vocabulary_filepath)
+        logging.info(f"Loading initial vocabulary...")
+        byte_vocab = load_vocab(initial_vocabulary)
         logging.info(f"Finished loading initial vocabulary. Vocabulary size: {len(byte_vocab)}")
 
         actual_max_len = max([len(v) for v in byte_vocab])
@@ -56,8 +71,8 @@ class SaGeVocabBuilder:
         logging.info("Initializing tokenizer")
         sage_model = SaGeTokenizer(byte_vocab, self.max_len)
 
-        logging.info(f"Loading Corpus from {corpus_filepath.as_posix()}")
-        partial_corpus = load_corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_line_number)
+        logging.info(f"Loading corpus...")
+        partial_corpus = load_corpus(corpus, n_corpus_examples=1000*k_corpus_examples, cache_name_or_path=corpus_cache, seed=self.random_seed)
         logging.info("Starting the training loop")
         vocab_schedule = self.full_vocab_schedule
 
@@ -71,7 +86,7 @@ class SaGeVocabBuilder:
 
         # initialize embeddings for first iteration
         embeddings = get_embeddings(vocab_schedule[0], embeddings_folder, partial_corpus, sage_model,
-                                        self.workers_number, self.word2vec_params)
+                                    self.workers_number, self.word2vec_params)
 
         # skipping the initial vocab size here
         i = 0
@@ -88,7 +103,7 @@ class SaGeVocabBuilder:
 
             if vocab_schedule[i] in embedding_sizes:
                 embeddings = get_embeddings(current_step_vocab_size, embeddings_folder, partial_corpus, sage_model,
-                                                self.workers_number, self.word2vec_params)
+                                            self.workers_number, self.word2vec_params)
 
             if actual_vocab_size <= target_vocab_size:
                 logging.info(f"Actual vocab is already smaller than target. continue to next iteration ")
@@ -119,9 +134,9 @@ class SaGeVocabBuilder:
                          f"Inactive Vocab Size: {current_inactive_vocab_size}")
 
             # how many of the losses are negative
-            neg_loss = len([loss for loss in token_to_losses.values() if loss < 0.0])
+            neg_loss  = len([loss for loss in token_to_losses.values() if loss < 0.0])
             zero_loss = len([loss for loss in token_to_losses.values() if loss == 0.0])
-            pos_loss = len([loss for loss in token_to_losses.values() if loss > 0.0])
+            pos_loss  = len([loss for loss in token_to_losses.values() if loss > 0.0])
             logging.info(f"Negative losses: {neg_loss}, zero losses: {zero_loss}, positive losses: {pos_loss}")
 
             # in case the active vocab we found is actually smaller than the target vocab,

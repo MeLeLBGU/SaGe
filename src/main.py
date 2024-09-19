@@ -49,23 +49,24 @@ def load_args():
 if __name__ == '__main__':
     args = load_args()
     vocab_builder = SaGeVocabBuilder(
-        args['vocabulary_schedule'],
-        args['embeddings_schedule'],
-        args['max_len'],
-        args['workers'],
-        args['random_seed'],
-        args['word2vec_D'],
-        args['word2vec_N'],
-        args['word2vec_ALPHA'],
-        args['word2vec_window_size'],
-        args['word2vec_min_count'],
-        args['word2vec_sg']
+        full_vocab_schedule=args['vocabulary_schedule'],
+        embeddings_schedule=args['embeddings_schedule'],
+        max_len=args['max_len'],
+        workers_number=args['workers'],
+        random_seed=args['random_seed'],
+        word2vec_d=args['word2vec_D'],
+        word2vec_n=args['word2vec_N'],
+        word2vec_alpha=args['word2vec_ALPHA'],
+        word2vec_window_size=args['word2vec_window_size'],
+        word2vec_min_count=args['word2vec_min_count'],
+        word2vec_sg=args['word2vec_sg']
     )
 
     vocab_builder.build_vocab(
-        args['experiment_name'],
-        args['corpus_filepath'],
-        args['initial_vocabulary_filepath'],
-        args['partial_corpus_filepath'],
-        args['partial_corpus_line_number'],
+        experiment_name=args['experiment_name'],
+        corpus=args['corpus_filepath'],
+        initial_vocabulary=args['initial_vocabulary_filepath'],
+        k_corpus_examples=args['partial_corpus_line_number'],
+
+        corpus_cache=args['partial_corpus_filepath'] if args['partial_corpus_filepath'] else "corpus"
     )

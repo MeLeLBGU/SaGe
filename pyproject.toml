@@ -7,7 +7,8 @@ name = "sage-tokenizer"
 version = "2.0.0"
 dependencies = [
     "gensim == 4.3.2",
-    "scipy == 1.12.0"
+    "scipy == 1.12.0",
+    "datasets"
 ]
 authors = [
     { name="Shaked Yehezkel"},

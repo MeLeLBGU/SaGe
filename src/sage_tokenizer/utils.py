@@ -1,5 +1,5 @@
 # Copyright © 2023 Kensho Technologies, LLC
-from typing import Iterable, Tuple, List, Optional, Dict
+from typing import Iterable, Tuple, List, Optional, Dict, Union, Generator
 
 import json
 import logging
@@ -9,13 +9,52 @@ import time
 from pathlib import Path
 
 import numpy as np
+from datasets import IterableDataset
 from scipy.special import expit
 
 from .model import SaGeTokenizer
+from .paths import getDataFolder, getLogsFolder, getResultsFolder
 
 # only log code outside of multiprocessing
 # logger = logging.getLogger(__name__)
-from .paths import getDataFolder, getLogsFolder, getResultsFolder
+
+
+TextSource = Union[ Iterable[str], Union[str,Path] ]
+
+def textSourceToIterable(source: TextSource) -> Iterable[str]:
+    if isinstance(source, (str, Path)):
+        return FileAsStringIterable(Path(source))
+    else:
+        return source
+
+
+class FileAsStringIterable:
+    """
+    Stores a file path and can return infinitely many generators (rather than being a generator).
+    """
+
+    def __init__(self, text_file: Path):
+        if not text_file.exists():
+            raise FileNotFoundError(f'Missing file: {text_file.as_posix()}')
+
+        self.path = text_file
+
+    def __iter__(self) -> Generator[str, None, None]:
+        logging.info(f"Loading contents from {self.path.as_posix()}")
+        with open(self.path, "r", encoding="utf-8") as handle:
+            for line in handle:
+                yield line
+
+
+class DictIterableAsStringIterable:
+
+    def __init__(self, iterable_dataset: IterableDataset, field: str="text"):
+        self.dict_iterable = iterable_dataset
+        self.field = field
+
+    def __iter__(self) -> Generator[str, None, None]:
+        for d in self.dict_iterable:
+            yield d[self.field]
 
 
 def write_vocab(vocab: Dict[bytes,int], filename: Path):
@@ -24,13 +63,11 @@ def write_vocab(vocab: Dict[bytes,int], filename: Path):
     Saved in same order by index, so should preserve order.
     No special tokens are added.
     """
-    # write these in increasing index order
-    # so same as any previous order
     byindex = sorted([(idx, token) for token, idx in vocab.items()])
 
-    with open(filename, 'w', encoding="utf-8") as f:
+    with open(filename, "w", encoding="utf-8") as f:
         for _, token in byindex:
-            f.write(token.hex() + '\n')
+            f.write(token.hex() + "\n")
 
 
 def save_sorted_losses(sage_model: SaGeTokenizer, sorted_losses, target_vocab_size: int, vocab_folder: Path):
@@ -52,55 +89,66 @@ def write_sorted_losses_into_file(sl: Iterable[Tuple[float,int]], filename: Path
             f.write(sage_model.id_to_encoded(tid) + "\t" + str(loss) + "\n")
 
 
-def load_vocab(vocab_filepath: Path) -> List[bytes]:
+def load_vocab(hex_string_source: TextSource) -> List[bytes]:
     """
     Read our hex formatted vocab file, return a list of bytes objects.
     Input file has one vocab word per line, each hex encoded.
     """
-    vocab_filepath = Path(vocab_filepath)
-    if not vocab_filepath.exists():
-        raise FileNotFoundError(f'Missing vocab file: {vocab_filepath.as_posix()}')
-
-    with open(vocab_filepath, "r") as vocab_file:
-        # fromhex ignores whitespace from \n at end
-        initial_vocab = [bytes.fromhex(token) for token in vocab_file.readlines()]
-
-    return initial_vocab
+    return [bytes.fromhex(token) for token in textSourceToIterable(hex_string_source)]
 
 
-def load_corpus(corpus_filepath: Path, partial_corpus_filepath: Optional[Path], partial_corpus_line_number: int) -> List[str]:
-    corpus_filepath         = Path(corpus_filepath)
-    partial_corpus_filepath = Path(partial_corpus_filepath) if isinstance(partial_corpus_filepath, str) else partial_corpus_filepath
-
-    if partial_corpus_filepath and partial_corpus_filepath.exists():  # Corpus already exists, directly loading
-        logging.info(f"Found pre-existing partial corpus. Loading from {partial_corpus_filepath.as_posix()}...")
-        read_start = time.time()
-        with open(partial_corpus_filepath, "r") as corpus_f:
-            partial_corpus = corpus_f.readlines()
-        logging.info(f"Size of Corpus: {len(partial_corpus)}, time: {(time.time() - read_start):.2f}")
+def load_corpus(corpus: TextSource, n_corpus_examples: int, cache_name_or_path: Union[str,Path], seed: int) -> Iterable[str]:
+    if isinstance(cache_name_or_path, Path):
+        do_cache = True
+        cache_path = cache_name_or_path.with_suffix(".txt")
     else:
-        read_start = time.time()
-        with open(corpus_filepath, "r") as full_corpus_f:
-            corpus = full_corpus_f.readlines()
-            logging.info(f"Loading from Original Corpus. Number of lines: {len(corpus)}")
+        do_cache = len(cache_name_or_path) > 0
+        if do_cache:
+            if "/" in cache_name_or_path:  # User wants a very specific path, e.g. because he's running on an HPC and has a separate path for storage.
+                cache_path = Path(cache_name_or_path).with_suffix(".txt")
+            else:
+                cache_path = getDataFolder() / f"{cache_name_or_path}_{n_corpus_examples}_{seed}.txt"
+        else:
+            cache_path = None
 
-        random.shuffle(corpus)
-        logging.info(f"Original Corpus read and shuffled. Time: {(time.time() - read_start):.2f}")
+    if do_cache and cache_path.exists():
+        logging.info(f"Found pre-existing partial corpus.")
+        # start = time.time()
+        # with open(cache_path, "r") as handle:
+        #     partial_corpus = handle.readlines()
+        # logging.info(f"Size of Corpus: {len(partial_corpus)}, time: {(time.time() - start):.2f}")
+        return FileAsStringIterable(cache_path)
 
-        # may be same as original depending on partial_corpus_line_number
+    corpus = textSourceToIterable(corpus)
+    data = IterableDataset.from_generator(lambda: ({"text": s.strip().replace("\n", " ")} for s in corpus))  # It's actually "from_thingThatMakesGenerator", not "from_generator".
+    data = data.shuffle(buffer_size=1_000_000, seed=seed)
+    data = data.take(n_corpus_examples)
+    data = DictIterableAsStringIterable(data)
+
+    if do_cache:
+        # read_start = time.time()
+        # with open(corpus_filepath, "r") as handle:
+        #     corpus = handle.readlines()
+        #     logging.info(f"Loading from Original Corpus. Number of lines: {len(corpus)}")
+        #
+        # random.shuffle(corpus)
+        # logging.info(f"Original Corpus read and shuffled. Time: {(time.time() - read_start):.2f}")
         write_start_time = time.time()
-        partial_corpus = corpus[:partial_corpus_line_number * 1000]
+        # partial_corpus = corpus[:n_corpus_examples]
+        # cache_path = getDataFolder() / f"{corpus_filepath.stem}_{n_corpus_examples}.txt"
 
-        if partial_corpus_filepath is None:
-            partial_corpus_filepath = getDataFolder() / f"{corpus_filepath.stem}_{len(partial_corpus)}.txt"
+        n_corpus_examples_actual = 0
+        with open(cache_path, "w+", encoding="utf-8") as handle:
+            for string in data:
+                handle.write(string + "\n")
+                n_corpus_examples_actual += 1
 
-        with open(partial_corpus_filepath, "w+") as partial_corpus_f:
-            partial_corpus_f.writelines(partial_corpus)
-        logging.info(f"Partial corpus saved at {partial_corpus_filepath.as_posix()}. "
-                     f"Number of lines: {len(partial_corpus)}, "
+        logging.info(f"Partial corpus saved at {cache_path.as_posix()}. "
+                     f"Number of lines: {n_corpus_examples_actual}, "
                      f"time: {(time.time() - write_start_time):.2f}")
-
-    return partial_corpus
+        return FileAsStringIterable(cache_path)
+    else:
+        return data
 
 
 def divide_data_by_num(data: List[str], num_procs: int) -> Iterable[List[str]]:
@@ -122,6 +170,37 @@ def divide_data_by_size(data, size):
         yield data[i: i + size]
 
 
+def split_iterable_into_generators(iterable: Iterable[str], n: int=1) -> List[Generator[str,None,None]]:
+    """
+    Copy the given iterable n times, then make it such that the new iterables only return once every n iterations offset
+    by their index in the new list. I.e., if the old iterable goes
+        a b c d e f g h
+    and we split into 3 iterables, then they go
+        a d g
+
+        b e h
+
+        c f
+    """
+    return [generate_every(iterable, step=n, offset=i) for i in range(n)]
+
+
+def generate_every(iterable: Iterable, step: int, offset: int=0) -> Generator:
+    """
+    Step through an iterator with steps of any size, not just 1.
+    If the original iterator goes
+        a b c d e f
+    and (step,offset) = (2, 1) then the result goes
+        b d f
+    """
+    assert step > 0
+    assert offset < step
+
+    for i,thing in enumerate(iterable):
+        if (i-offset) % step == 0:  # i-offset is equivalent to i + (step-offset) in modular arithmetic, so when i == offset you get step % step == 0.
+            yield thing
+
+
 def compute_losses(losses, all_triples, embeddings):
     """
     function for computing losses given triple counts and embeddings
@@ -138,9 +217,10 @@ def compute_losses(losses, all_triples, embeddings):
         losses[ablated_token_id] = losses.get(ablated_token_id, 0.0) + triples_loss[idx]
 
 
-def run_sage_parallel(embeddings: np.ndarray, partial_corpus: List[str], sage_model: SaGeTokenizer, workers_number: int):
+def run_sage_parallel(embeddings: np.ndarray, partial_corpus: Iterable[str], sage_model: SaGeTokenizer, workers_number: int):
     logging.info(f"Splitting data into {workers_number} chunks.")
-    data_chunk_gen = divide_data_by_num(partial_corpus, workers_number)
+    # data_chunk_gen = divide_data_by_num(partial_corpus, workers_number)
+    data_chunk_gen = split_iterable_into_generators(partial_corpus, n=workers_number)
 
     # these get aggregated over each chunk
     sage_losses = {}  # is token_id : loss
@@ -190,7 +270,7 @@ def run_sage_parallel(embeddings: np.ndarray, partial_corpus: List[str], sage_mo
     return overall_total_tokens, overall_total_triples, sage_losses, ablated_sizes
 
 
-def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=10000):
+def sage_per_chunk(tid: int, model: SaGeTokenizer, data: Iterable[str], embeddings: np.ndarray, chunk_size: int=10_000):
     """
     function that runs sage on each chunk of data (in parallelization)
     note: this is called from multiprocessing, so use print rather than logging
@@ -211,13 +291,14 @@ def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=
     total_cl_time = 0.0
 
     fs_start = time.time()
-    for row, d in enumerate(data):
-
-        total_tokens += model.fast_sage(bytes(d, 'utf-8'), triples, ablated_sizes)
+    n_examples_seen = 0
+    for i, sentence in enumerate(data):
+        n_examples_seen += 1
+        total_tokens += model.fast_sage(bytes(sentence, 'utf-8'), triples, ablated_sizes)
 
         # if filled up chunk, then compute the losses
         # to free up memory
-        if (row > 0) and (row % chunk_size == 0):
+        if (i > 0) and (i % chunk_size == 0):
             # take the total time here over all calls
             fs_time = time.time() - fs_start
             total_fs_time += fs_time
@@ -229,7 +310,7 @@ def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=
             cl_time = time.time() - cl_start
             total_cl_time += cl_time
 
-            print(f"fast_sage {tid}, row {row} of {len(data)}, "
+            print(f"fast_sage {tid}, row {i+1}, "
                   f"fs_time: {fs_time:.2f}, cl_time: {cl_time:.2f}, "
                   f"triples: {len(triples)}, tokens: {total_tokens}")
 
@@ -245,7 +326,7 @@ def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=
 
     # the triples can get quite large, so to avoid merging these
     # dict values, let's compute the losses in parallel too
-    print(f"final fast_sage {tid}, row {row} of {len(data)}, "
+    print(f"final fast_sage {tid}, row {n_examples_seen} of {n_examples_seen}, "
           f"fs_time: {total_fs_time:.2f}, cl_time: {total_cl_time:.2f}, time: {(time.time() - start_time):.2f}, "
           f"triples: {len(triples)}, tokens: {total_tokens}")
 
