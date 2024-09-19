@@ -294,7 +294,7 @@ def sage_per_chunk(tid: int, model: SaGeTokenizer, data: Iterable[str], embeddin
     n_examples_seen = 0
     for i, sentence in enumerate(data):
         n_examples_seen += 1
-        total_tokens += model.fast_sage(bytes(sentence, 'utf-8'), triples, ablated_sizes)
+        total_tokens += model.fast_sage(model.pretokenize(sentence), triples, ablated_sizes)
 
         # if filled up chunk, then compute the losses
         # to free up memory

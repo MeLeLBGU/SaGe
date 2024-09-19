@@ -43,7 +43,7 @@ def train_embeddings(sage_model: SaGeTokenizer, partial_corpus: Iterable[str], w
         for i,s in enumerate(partial_corpus):
             if i % 1_000_000 == 0:
                 logging.info(f"\tTokenizing example {i}, time: {(time.time() - start):.2f} seconds")
-            yield " ".join(sage_model.tokenize_to_encoded_str(bytes(s, 'utf-8')))  # GenSim expects a corpus consisting of whitespace-separated tokens.
+            yield " ".join(sage_model.tokenize_to_encoded_str(sage_model.pretokenize(s)))  # GenSim expects a corpus consisting of whitespace-separated tokens.
 
     if isinstance(partial_corpus, FileAsStringIterable):  # GenSim is accelerated for file-stored corpora (https://github.com/RaRe-Technologies/gensim/releases/tag/3.6.0 and https://github.com/RaRe-Technologies/gensim/blob/develop/docs/notebooks/Any2Vec_Filebased.ipynb).
         gensim_file = embeddings_folder / f"gensim_{sage_model.vocab_size()}.txt"

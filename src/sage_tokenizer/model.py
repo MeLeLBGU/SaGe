@@ -78,17 +78,23 @@ class SaGeTokenizer:
             # add that with a "good" score
             vocab[tid] = score
 
-    def tokenize(self, sent: Tokenizable, tokens_only: bool=False) -> Union[List[int], List[Tuple[int, int, int]]]:
+    def pretokenize(self, sentence: Tokenizable) -> bytes:
+        try:  # Most frequent use-case is tokenising a string, so this is much faster than `if isinstance(sentence, str)`.
+            return sentence.encode("utf-8")
+        except:
+            return sentence
+
+    def tokenize(self, sentence: Tokenizable, tokens_only: bool=False) -> Union[List[int], List[Tuple[int, int, int]]]:
         """
         Split the gives sentence into tokens and convert them to IDs.
         """
-        if isinstance(sent, str):
-            sent = bytes(sent, encoding='utf-8')
+        sentence = self.pretokenize(sentence)
+
         data = []
         i = 0
-        while i < len(sent):  # Iterate through the sentence input
+        while i < len(sentence):  # Iterate through the sentence input
             for j in range(self.max_len, 0, -1):  # Find the longest possible token
-                tok = sent[i:i + j]
+                tok = sentence[i:i + j]
                 if tok in self.byte_vocab:
                     if tokens_only:
                         # Only add token_id to results
