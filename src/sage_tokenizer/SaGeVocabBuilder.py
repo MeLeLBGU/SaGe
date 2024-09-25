@@ -1,4 +1,6 @@
 # Copyright © 2023 Kensho Technologies, LLC
+from typing import List, Union, Optional
+from pathlib import Path
 
 import logging
 
@@ -11,9 +13,9 @@ from .utils import init_logger, set_random_seed, load_vocab, get_output_folder, 
 
 class SaGeVocabBuilder:
 
-    def __init__(self, full_vocab_schedule: list[int], embeddings_schedule: list[int], max_len=16, workers_number=1,
-                 random_seed=692653, word2vec_d=50, word2vec_n=15, word2vec_alpha=0.025, word2vec_window_size=5,
-                 word2vec_min_count=1, word2vec_sg=1):
+    def __init__(self, full_vocab_schedule: List[int], embeddings_schedule: List[int],
+                 max_len: int=16, workers_number: int=1, random_seed: int=692653,
+                 word2vec_d: int=50, word2vec_n: int=15, word2vec_alpha: float=0.025, word2vec_window_size: int=5, word2vec_min_count: int=1, word2vec_sg: bool=True):
         self.full_vocab_schedule = full_vocab_schedule
         self.embeddings_schedule = embeddings_schedule
         self.max_len = max_len
@@ -25,11 +27,15 @@ class SaGeVocabBuilder:
             ALPHA=word2vec_alpha,
             window_size=word2vec_window_size,
             min_count=word2vec_min_count,
-            sg=word2vec_sg
+            sg=int(word2vec_sg)  # 1 uses skip-gram, 0 uses CBoW.
         )
 
-    def build_vocab(self, experiment_name: str, corpus_filepath: str, vocabulary_filepath: str,
-                    partial_corpus_filepath="", partial_corpus_line_number=1000):
+    def build_vocab(self, experiment_name: str,
+                    corpus_filepath: Union[str,Path], vocabulary_filepath: Union[str,Path],
+                    partial_corpus_filepath: Optional[Union[str,Path]]=None, partial_corpus_line_number: int=1000):
+        corpus_filepath         = Path(corpus_filepath)
+        vocabulary_filepath     = Path(vocabulary_filepath)
+        partial_corpus_filepath = Path(partial_corpus_filepath) if isinstance(partial_corpus_filepath, str) else None
 
         init_logger(experiment_name)
         logging.info(f"Start experiment {experiment_name}")
@@ -39,7 +45,7 @@ class SaGeVocabBuilder:
         embeddings_folder, stats_folder, vocab_folder = get_output_folder(experiment_name)
         logging.info("Setting random seed")
         set_random_seed(experiment_name, self.random_seed)
-        logging.info(f"Loading initial vocabulary from file {vocabulary_filepath}")
+        logging.info(f"Loading initial vocabulary from file {vocabulary_filepath.as_posix()}")
         byte_vocab = load_vocab(vocabulary_filepath)
         logging.info(f"Finished loading initial vocabulary. Vocabulary size: {len(byte_vocab)}")
 
@@ -50,7 +56,7 @@ class SaGeVocabBuilder:
         logging.info("Initializing tokenizer")
         sage_model = SaGeTokenizer(byte_vocab, self.max_len)
 
-        logging.info(f"Loading Corpus from {corpus_filepath}")
+        logging.info(f"Loading Corpus from {corpus_filepath.as_posix()}")
         partial_corpus = load_corpus(corpus_filepath, partial_corpus_filepath, partial_corpus_line_number)
         logging.info("Starting the training loop")
         vocab_schedule = self.full_vocab_schedule
@@ -72,7 +78,6 @@ class SaGeVocabBuilder:
         # stop one before the end, since we do i+1,
         # so we'll make the vocab of that final size, but won't do the tokenization on it
         while i < len(vocab_schedule) - 1:
-
             current_step_vocab_size = vocab_schedule[i]  # this will be the label used for files
             target_vocab_size = vocab_schedule[i + 1]
             actual_vocab_size = sage_model.vocab_size()
@@ -151,35 +156,35 @@ class SaGeVocabBuilder:
             save_stats(stats, stats_folder, target_vocab_size)
 
             # these are the tokens to be removed
-            tokens_to_prune = set([sage_model.id_to_bytes(tid) for (loss, tid) in sorted_losses[:num_tokens_to_prune]])
+            tokens_to_prune = {sage_model.id_to_bytes(tid) for (loss, tid) in sorted_losses[:num_tokens_to_prune]}
             # double check there are no single bytes tokens to prune here
             single_byte_tokens_to_prune = [token for token in tokens_to_prune if len(token) == 1]
             assert len(single_byte_tokens_to_prune) == 0
 
             # our active vocabulary *after* pruning
             # is active if it has an entry in token_to_losses
-            active_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            active_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                             if tid in token_to_losses and tok not in tokens_to_prune}
 
             # our overall vocabulary after pruning
-            target_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            target_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                             if tok not in tokens_to_prune}
 
             # the deleted items
-            deleted_vocab = {tok: tid for (tok, tid) in sage_model.get_vocabulary().items()
+            deleted_vocab = {tok: tid for tok, tid in sage_model.get_vocabulary().items()
                              if tok in tokens_to_prune}
 
-            vocab_save_name = f"{vocab_folder}/sage_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving intermediate vocab of size {len(target_vocab)} to {vocab_save_name}")
+            vocab_save_name = vocab_folder / f"sage_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving intermediate vocab of size {len(target_vocab)} to {vocab_save_name.as_posix()}")
             write_vocab(target_vocab, vocab_save_name)
 
-            active_save_name = f"{vocab_folder}/active_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving active vocab of size {len(active_vocab)} to {active_save_name}")
+            active_save_name = vocab_folder / f"active_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving active vocab of size {len(active_vocab)} to {active_save_name.as_posix()}")
             write_vocab(active_vocab, active_save_name)
 
             # save the deleted ones too for analysis, with the original size
-            deleted_save_name = f"{vocab_folder}/deleted_vocab_{target_vocab_size}.vocab"
-            logging.info(f"Saving deleted vocab of size {len(deleted_vocab)} to {deleted_save_name}")
+            deleted_save_name = vocab_folder / f"deleted_vocab_{target_vocab_size}.vocab"
+            logging.info(f"Saving deleted vocab of size {len(deleted_vocab)} to {deleted_save_name.as_posix()}")
             write_vocab(deleted_vocab, deleted_save_name)
 
             # now update the internal state of sage_model to use the new smaller vocab
