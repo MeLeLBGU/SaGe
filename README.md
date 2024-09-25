@@ -13,6 +13,8 @@ vocab_builder.build_vocab(experiment_name='experiment_name',
                           corpus_filepath='data/wiki_lines.txt', 
                           vocabulary_filepath='data/initial_vocab_hex.vocab')                     
 ```
+The `.vocab` file can then be loaded as-is into most tokenization toolkits, such as Huggingface's `tokenizers`.
+
 SaGe tokenizer can be installed from PyPI:
 ```
 pip install sage-tokenizer
