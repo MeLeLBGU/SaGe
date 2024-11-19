@@ -1,5 +1,8 @@
 # SaGe 2.0
-Version 2.0 for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)). Downstream applications of the tokenizer, i.e. pre-training an LLM model and evaluating on benchmarks, are independent of the tokenizer code - in the paper we used [academic budget BERT](https://github.com/IntelLabs/academic-budget-bert).
+Version 2.0 for the SaGe subword tokenizer ([EACL 2023](https://aclanthology.org/2023.eacl-main.45/)), excelling in [morphological segmentation](https://aclanthology.org/2024.acl-short.73/). Downstream applications of the tokenizer, i.e. pre-training an LLM model and evaluating on benchmarks, are independent of the tokenizer code - in the paper we used [academic budget BERT](https://github.com/IntelLabs/academic-budget-bert).
+
+Pre-trained SaGe-based models are available in [this](https://github.com/kensho-technologies/timtc_vocabs_models) repository.
+The large versions (2.4B params) produced the best results over BPE, UnigramLM, and PathPiece---see Table 14 in the Appendix [here](https://aclanthology.org/2024.emnlp-main.40/).
 
 SaGe 2.0 implements a faster, parallelizable version of the vocabulary learning algorithm.
 
