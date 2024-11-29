@@ -240,8 +240,9 @@ def sage_per_chunk(tid, model: SaGeTokenizer, data, embeddings, chunk_size: int=
             triples = {}
 
     # compute for final partial chunk
-    compute_losses(losses, triples, embeddings)
-    total_triples += len(triples)
+    if triples:
+        compute_losses(losses, triples, embeddings)
+        total_triples += len(triples)
 
     # the triples can get quite large, so to avoid merging these
     # dict values, let's compute the losses in parallel too
